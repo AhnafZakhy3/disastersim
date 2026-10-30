@@ -41,25 +41,6 @@ Aplikasi ini mengadopsi standar ilmiah dari **PVMBG** (Pusat Vulkanologi dan Mit
 4. **Buka aplikasi di peramban (Browser)**:
    Buka alamat [http://localhost:3000](http://localhost:3000) pada browser pilihan Anda.
 
-### Script Lainnya
-- **Build untuk produksi**:
-  ```bash
-  npm run build
-  ```
-- **Menjalankan server produksi**:
-  ```bash
-  npm run start
-  ```
-- **Menjalankan suite audit 100 skenario**:
-  ```bash
-  npm run audit
-  ```
-- **Pengecekan linting kode**:
-  ```bash
-  npm run lint
-  ```
-
----
 
 ## Progres Saat Ini
 
