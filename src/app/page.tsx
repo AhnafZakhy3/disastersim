@@ -385,14 +385,14 @@ export default function DisasterSimulatorPage() {
       </header>
 
       {/* ============================================================== */}
-      {/* 3. LEFT FLOATING HUD DRAWER (SCENARIO CONTROLS - 320px)        */}
+      {/* 3. LEFT FLOATING HUD DRAWER (SCENARIO CONTROLS - 350px)        */}
       {/* ============================================================== */}
       <div
         className={`absolute top-20 bottom-24 left-3 z-30 transition-transform duration-300 flex ${
           showLeftPanel ? 'translate-x-0' : '-translate-x-[calc(100%-28px)]'
         }`}
       >
-        <div className="w-80 h-full shadow-2xl rounded-xl overflow-hidden">
+        <div className="w-[350px] h-full bg-slate-900/95 backdrop-blur-md border border-slate-800/90 rounded-xl shadow-2xl p-3 flex flex-col overflow-hidden">
           <ScenarioControls
             activeDisaster={activeDisaster}
             onDisasterChange={(type) => {
@@ -430,7 +430,7 @@ export default function DisasterSimulatorPage() {
       </div>
 
       {/* ============================================================== */}
-      {/* 4. RIGHT FLOATING HUD DRAWER (TACTICAL IMPACT - 320px)         */}
+      {/* 4. RIGHT FLOATING HUD DRAWER (TACTICAL IMPACT - 350px)         */}
       {/* ============================================================== */}
       <div
         className={`absolute top-20 bottom-24 right-3 z-30 transition-transform duration-300 flex ${
@@ -450,7 +450,7 @@ export default function DisasterSimulatorPage() {
           )}
         </button>
 
-        <div className="w-80 h-full shadow-2xl rounded-xl overflow-hidden">
+        <div className="w-[350px] h-full bg-slate-900/95 backdrop-blur-md border border-slate-800/90 rounded-xl shadow-2xl p-3 flex flex-col overflow-hidden">
           <ImpactSummary
             activeDisaster={activeDisaster}
             selectedVolcano={selectedVolcano}

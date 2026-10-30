@@ -21,6 +21,7 @@ import {
   Crosshair,
   Shield,
   Search,
+  ChevronRight,
 } from 'lucide-react';
 import {
   HazardDiamond,
@@ -117,9 +118,9 @@ export default function ScenarioControls({
   };
 
   return (
-    <div className="w-full h-full flex flex-col space-y-4 text-slate-200">
-      {/* 1. Mode Selector Tabs: Siaga | Gunung Api | Tsunami */}
-      <div className="grid grid-cols-3 gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800">
+    <div className="w-full h-full flex flex-col min-h-0 text-slate-200">
+      {/* 1. Mode Selector Tabs: Siaga | Gunung Api | Tsunami (Fixed Header) */}
+      <div className="shrink-0 mb-3 grid grid-cols-3 gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800">
         <button
           type="button"
           onClick={() => onDisasterChange('standby')}
@@ -160,7 +161,9 @@ export default function ScenarioControls({
         </button>
       </div>
 
-      {/* 2. Mode Siaga Standby Briefing */}
+      {/* Middle Scrollable Body */}
+      <div className="flex-1 overflow-y-auto pr-1 min-h-0 space-y-4">
+        {/* 2. Mode Siaga Standby Briefing */}
       {activeDisaster === 'standby' && (
         <StandbyBriefing
           onStartVolcano={() => onDisasterChange('volcano')}
@@ -259,43 +262,69 @@ export default function ScenarioControls({
               </div>
             )}
 
-            {/* Select Dropdown */}
-            <select
-              id="volcano-select"
-              name="volcano-select"
-              aria-label="Pilih Target Gunung Api"
-              value={volcanoScenario.isCustom ? 'custom' : selectedVolcano.id}
-              onChange={(e) => {
-                const found = INDONESIA_VOLCANOES.find((v) => v.id === e.target.value);
-                if (found) {
-                  onVolcanoChange(found);
-                  onVolcanoScenarioChange({
-                    ...volcanoScenario,
-                    isCustom: false,
-                    customLocation: undefined,
-                    volcanoId: found.id,
-                    vei: found.defaultVEI > 0 ? found.defaultVEI : 1,
-                  });
-                }
-              }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-slate-100 focus:outline-none focus:border-rose-500 transition-colors"
-            >
-              {volcanoScenario.isCustom && (
-                <option value="custom" disabled>
-                  📍 {volcanoScenario.customLocation?.name || 'Titik Kustom Aktif'}
-                </option>
+            {/* Select Dropdown & Telemetry */}
+            <div className="space-y-1.5">
+              <div className="relative">
+                <select
+                  id="volcano-select"
+                  name="volcano-select"
+                  aria-label="Pilih Target Gunung Api"
+                  value={volcanoScenario.isCustom ? 'custom' : selectedVolcano.id}
+                  onChange={(e) => {
+                    const found = INDONESIA_VOLCANOES.find((v) => v.id === e.target.value);
+                    if (found) {
+                      onVolcanoChange(found);
+                      onVolcanoScenarioChange({
+                        ...volcanoScenario,
+                        isCustom: false,
+                        customLocation: undefined,
+                        volcanoId: found.id,
+                        vei: found.defaultVEI > 0 ? found.defaultVEI : 1,
+                      });
+                    }
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 pl-3 pr-8 text-xs text-slate-100 focus:outline-none focus:border-rose-500 transition-colors truncate cursor-pointer appearance-none"
+                >
+                  {volcanoScenario.isCustom && (
+                    <option value="custom" disabled>
+                      📍 {volcanoScenario.customLocation?.name || 'Titik Kustom Aktif'}
+                    </option>
+                  )}
+                  {filteredVolcanoes.length === 0 ? (
+                    <option disabled>Tidak ditemukan gunung yang cocok</option>
+                  ) : (
+                    filteredVolcanoes.map((v) => (
+                      <option
+                        key={v.id}
+                        value={v.id}
+                        title={`${v.name} (${v.province} — ${v.elevationM} mdpl)`}
+                      >
+                        {v.category === 'non_volcano' ? '⛰ ' : '▲ '}
+                        {v.name} — {v.province} ({v.elevationM}m)
+                      </option>
+                    ))
+                  )}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+                  <ChevronRight className="w-3.5 h-3.5 rotate-90" />
+                </div>
+              </div>
+
+              {/* Active Selected Volcano Telemetry Card (Always Full Details) */}
+              {!volcanoScenario.isCustom && (
+                <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-950/70 border border-slate-800/80 rounded-md text-[11px]">
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                    <span className="font-semibold text-slate-200 truncate">
+                      {selectedVolcano.name}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-amber-400/90 shrink-0 ml-2">
+                    {selectedVolcano.elevationM} mdpl • {selectedVolcano.province}
+                  </span>
+                </div>
               )}
-              {filteredVolcanoes.length === 0 ? (
-                <option disabled>Tidak ditemukan gunung yang cocok</option>
-              ) : (
-                filteredVolcanoes.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.category === 'non_volcano' ? '⛰ ' : '▲ '}
-                    {v.name} ({v.province} — {v.elevationM} m)
-                  </option>
-                ))
-              )}
-            </select>
+            </div>
           </div>
 
           {/* VEI Slider & PVMBG Alert Indicator */}
@@ -442,38 +471,65 @@ export default function ScenarioControls({
               </div>
             )}
 
-            <select
-              id="fault-select"
-              name="fault-select"
-              aria-label="Pilih Patahan Megathrust"
-              value={tsunamiScenario.isCustom ? 'custom' : selectedFault.id}
-              onChange={(e) => {
-                const found = INDONESIA_TSUNAMI_FAULTS.find((f) => f.id === e.target.value);
-                if (found) {
-                  onFaultChange(found);
-                  onTsunamiScenarioChange({
-                    ...tsunamiScenario,
-                    isCustom: false,
-                    customLocation: undefined,
-                    faultId: found.id,
-                    mw: found.defaultMw,
-                    depthKm: found.defaultDepthKm,
-                  });
-                }
-              }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-slate-100 focus:outline-none focus:border-sky-500 transition-colors"
-            >
-              {tsunamiScenario.isCustom && (
-                <option value="custom" disabled>
-                  🌊 {tsunamiScenario.customLocation?.name || 'Episentrum Kustom Aktif'}
-                </option>
+            {/* Select Dropdown & Telemetry */}
+            <div className="space-y-1.5">
+              <div className="relative">
+                <select
+                  id="fault-select"
+                  name="fault-select"
+                  aria-label="Pilih Patahan Megathrust"
+                  value={tsunamiScenario.isCustom ? 'custom' : selectedFault.id}
+                  onChange={(e) => {
+                    const found = INDONESIA_TSUNAMI_FAULTS.find((f) => f.id === e.target.value);
+                    if (found) {
+                      onFaultChange(found);
+                      onTsunamiScenarioChange({
+                        ...tsunamiScenario,
+                        isCustom: false,
+                        customLocation: undefined,
+                        faultId: found.id,
+                        mw: found.defaultMw,
+                        depthKm: found.defaultDepthKm,
+                      });
+                    }
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 pl-3 pr-8 text-xs text-slate-100 focus:outline-none focus:border-sky-500 transition-colors truncate cursor-pointer appearance-none"
+                >
+                  {tsunamiScenario.isCustom && (
+                    <option value="custom" disabled>
+                      🌊 {tsunamiScenario.customLocation?.name || 'Episentrum Kustom Aktif'}
+                    </option>
+                  )}
+                  {INDONESIA_TSUNAMI_FAULTS.map((f) => (
+                    <option
+                      key={f.id}
+                      value={f.id}
+                      title={`${f.name} (${f.region} — Kedalaman: ${f.avgOceanDepthM}m)`}
+                    >
+                      🌊 {f.name} — {f.region}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+                  <ChevronRight className="w-3.5 h-3.5 rotate-90" />
+                </div>
+              </div>
+
+              {/* Active Selected Fault Telemetry Card */}
+              {!tsunamiScenario.isCustom && (
+                <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-950/70 border border-slate-800/80 rounded-md text-[11px]">
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                    <span className="font-semibold text-slate-200 truncate">
+                      {selectedFault.name}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-sky-400/90 shrink-0 ml-2">
+                    Kedalaman {selectedFault.avgOceanDepthM}m
+                  </span>
+                </div>
               )}
-              {INDONESIA_TSUNAMI_FAULTS.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name} (Mw {f.defaultMw})
-                </option>
-              ))}
-            </select>
+            </div>
           </div>
 
           {/* Mw Slider */}
@@ -539,10 +595,11 @@ export default function ScenarioControls({
           </div>
         </div>
       )}
+      </div>
 
-      {/* 4. Action Buttons (Only for active disaster simulation) */}
+      {/* 4. Action Buttons (Sticky Footer for active disaster simulation) */}
       {activeDisaster !== 'standby' && (
-        <div className="pt-2 border-t border-slate-800 space-y-2">
+        <div className="shrink-0 pt-2.5 mt-2 border-t border-slate-800/90 bg-slate-900/95 space-y-2">
           <button
             type="button"
             onClick={onTriggerSimulation}

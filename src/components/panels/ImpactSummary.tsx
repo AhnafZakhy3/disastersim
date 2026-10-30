@@ -365,7 +365,7 @@ export default function ImpactSummary({
   const etaMinutesWhole = Math.floor(etaMinutes);
 
   return (
-    <div className="w-full h-full flex flex-col space-y-3.5 text-slate-200">
+    <div className="w-full h-full flex flex-col space-y-3.5 text-slate-200 overflow-y-auto pr-1 min-h-0">
       {/* 1. Main Alert Status Banner */}
       <div
         className="p-3 rounded-lg border relative transition-all"
