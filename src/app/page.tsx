@@ -257,8 +257,8 @@ export default function DisasterSimulatorPage() {
           </div>
         </div>
 
-        {/* Center Quick Switcher: Siaga | Gunung Api | Tsunami */}
-        <div className="flex items-center bg-slate-900/90 p-1 rounded-lg border border-slate-800 shadow-inner">
+        {/* Center Quick Switcher: Siaga | Gunung Api | Tsunami (Mathematically centered) */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center bg-slate-900/90 p-1 rounded-lg border border-slate-800 shadow-inner">
           <button
             onClick={() => {
               setActiveDisaster('standby');
