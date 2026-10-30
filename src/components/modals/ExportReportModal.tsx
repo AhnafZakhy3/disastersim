@@ -13,6 +13,7 @@ import {
 import {
   FileText,
   Download,
+  FileDown,
   Printer,
   X,
   ShieldAlert,
@@ -46,10 +47,11 @@ export default function ExportReportModal({
   tsunamiResult,
 }: ExportReportModalProps) {
   const reportRef = useRef<HTMLDivElement>(null);
-  const [isExporting, setIsExporting] = useState(false);
   const [reportType, setReportType] = useState<'volcano' | 'tsunami'>(
     activeDisaster === 'tsunami' ? 'tsunami' : 'volcano'
   );
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isExportingPNG, setIsExportingPNG] = useState(false);
 
   if (!isOpen) return null;
 
@@ -77,12 +79,40 @@ export default function ExportReportModal({
     window.print();
   };
 
+  const handleDownloadPDF = async () => {
+    if (!reportRef.current) return;
+    try {
+      setIsExportingPDF(true);
+      const { toPng } = await import('html-to-image');
+      const { jsPDF } = await import('jspdf');
+      const dataUrl = await toPng(reportRef.current, { quality: 0.95, pixelRatio: 2 });
+      const safeHazardName = sanitizeFilename(hazardName, 'Disaster-Brief');
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const contentHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, Math.min(contentHeight, pdfHeight));
+      pdf.save(`Disaster-Brief-${safeHazardName}.pdf`);
+    } catch (err) {
+      console.error('Failed to export PDF:', err);
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   const handleDownloadPNG = async () => {
     if (!reportRef.current) return;
     try {
-      setIsExporting(true);
+      setIsExportingPNG(true);
       const { toPng } = await import('html-to-image');
-      const dataUrl = await toPng(reportRef.current, { quality: 0.95 });
+      const dataUrl = await toPng(reportRef.current, { quality: 0.95, pixelRatio: 2 });
       const safeHazardName = sanitizeFilename(hazardName, 'Disaster-Brief');
       const link = document.createElement('a');
       link.download = `Disaster-Brief-${safeHazardName}.png`;
@@ -91,7 +121,7 @@ export default function ExportReportModal({
     } catch (err) {
       console.error('Failed to export PNG:', err);
     } finally {
-      setIsExporting(false);
+      setIsExportingPNG(false);
     }
   };
 
@@ -320,8 +350,9 @@ export default function ExportReportModal({
         </div>
 
         {/* Modal Action Bar */}
-        <div className="flex items-center justify-end gap-2.5 px-6 py-4 bg-slate-950 border-t border-slate-800">
+        <div className="flex flex-wrap items-center justify-end gap-2.5 px-6 py-4 bg-slate-950 border-t border-slate-800">
           <button
+            type="button"
             onClick={handlePrint}
             className="flex items-center gap-1.5 py-2 px-3.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors"
           >
@@ -329,12 +360,22 @@ export default function ExportReportModal({
             <span>Cetak Dokumen</span>
           </button>
           <button
+            type="button"
             onClick={handleDownloadPNG}
-            disabled={isExporting}
+            disabled={isExportingPNG || isExportingPDF}
+            className="flex items-center gap-1.5 py-2 px-3.5 rounded-lg text-xs font-medium text-slate-200 hover:text-white bg-slate-800/90 hover:bg-slate-700 border border-slate-700 transition-colors disabled:opacity-50"
+          >
+            <Download className="w-4 h-4 text-slate-400" />
+            <span>{isExportingPNG ? 'Memproses PNG...' : 'Unduh Gambar (PNG)'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadPDF}
+            disabled={isExportingPNG || isExportingPDF}
             className="flex items-center gap-1.5 py-2 px-4 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-900/40 transition-all active:scale-95 disabled:opacity-50"
           >
-            <Download className="w-4 h-4" />
-            <span>{isExporting ? 'Memproses...' : 'Unduh Gambar (PNG)'}</span>
+            <FileDown className="w-4 h-4" />
+            <span>{isExportingPDF ? 'Memproses PDF...' : 'Unduh Brief (PDF)'}</span>
           </button>
         </div>
       </div>
