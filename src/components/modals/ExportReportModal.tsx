@@ -313,8 +313,8 @@ export default function ExportReportModal({
             </div>
 
             {/* Footer Disclaimer */}
-            <div className="pt-3 border-t border-slate-800 text-[10px] text-slate-500 text-center font-mono">
-              NUSANTARA DISASTER SIMULATOR • SIMULASI EMPIRIS CEPAT BERBASIS CLIENT-SIDE BROWSER
+            <div className="pt-3 border-t border-slate-800 text-[9px] text-slate-500 text-center font-mono leading-relaxed">
+              NUSANTARA DISASTER SIMULATOR • SIMULASI EDUKASI & KAJIAN RISIKO EMPIRIS • BUKAN PERINGATAN RESMI OPERASIONAL BMKG/PVMBG/BNPB
             </div>
           </div>
         </div>

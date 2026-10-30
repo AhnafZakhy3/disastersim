@@ -38,7 +38,7 @@ export interface VolcanoPreset {
   shelters: EvacuationShelter[];
 }
 
-export type CityThreatStatus = 'safe' | 'advisory' | 'warning' | 'danger' | 'impacted';
+export type CityThreatStatus = 'standby' | 'safe' | 'advisory' | 'warning' | 'danger' | 'impacted';
 
 export interface EvaluatedCity {
   id: string;

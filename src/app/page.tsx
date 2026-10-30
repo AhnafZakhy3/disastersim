@@ -8,9 +8,11 @@ import {
   TsunamiFaultPreset,
   VolcanoScenario,
   TsunamiScenario,
+  EvaluatedCity,
 } from '@/types/disaster';
 import { INDONESIA_VOLCANOES } from '@/data/volcanoes';
 import { INDONESIA_TSUNAMI_FAULTS } from '@/data/tsunamiFaults';
+import { INDONESIA_CITIES } from '@/data/indonesiaCities';
 import { simulateVolcanoEruption } from '@/lib/simulation/volcanoModel';
 import { simulateTsunamiImpact } from '@/lib/simulation/tsunamiModel';
 import { isOceanCoordinate } from '@/lib/geoUtils';
@@ -49,14 +51,16 @@ export default function DisasterSimulatorPage() {
   // Disaster selection state: Default is 'standby' (Clean Slate national overview)
   const [activeDisaster, setActiveDisaster] = useState<DisasterType>('standby');
 
-  // Volcano scenario state
-  const [selectedVolcano, setSelectedVolcano] = useState<VolcanoPreset>(
-    INDONESIA_VOLCANOES[0] // Gunung Merapi
+  // Volcano scenario state: Default to Gunung Merapi (Yogyakarta / Jawa Tengah)
+  const defaultVolcano = useMemo(
+    () => INDONESIA_VOLCANOES.find((v) => v.id === 'merapi') || INDONESIA_VOLCANOES[0],
+    []
   );
+  const [selectedVolcano, setSelectedVolcano] = useState<VolcanoPreset>(defaultVolcano);
   const [volcanoScenario, setVolcanoScenario] = useState<VolcanoScenario>({
-    volcanoId: INDONESIA_VOLCANOES[0].id,
+    volcanoId: defaultVolcano.id,
     isCustom: false,
-    vei: INDONESIA_VOLCANOES[0].defaultVEI,
+    vei: defaultVolcano.defaultVEI,
     windDirectionDeg: 225, // SW toward Sleman / Yogyakarta
     windSpeedKmh: 35,
   });
@@ -95,6 +99,25 @@ export default function DisasterSimulatorPage() {
     return simulateTsunamiImpact(tsunamiScenario, currentTimeMinutes);
   }, [tsunamiScenario, currentTimeMinutes]);
 
+  // Neutral city evaluation for Standby Mode (Clean Slate)
+  const standbyEvaluatedCities = useMemo<EvaluatedCity[]>(() => {
+    return INDONESIA_CITIES.map((c) => ({
+      id: c.id,
+      cityName: c.name,
+      type: c.type,
+      province: c.province,
+      islandGroup: c.islandGroup,
+      lat: c.lat,
+      lng: c.lng,
+      population: c.population,
+      isCoastal: c.isCoastal,
+      distanceKm: 0,
+      status: 'standby',
+      statusLabel: 'Siaga Pantau (Tidak Ada Bencana Aktif)',
+      ashFallCategory: 'none',
+    }));
+  }, []);
+
   // Aggregate all 514 evaluated cities based on active mode
   const currentEvaluatedCities = useMemo(() => {
     if (activeDisaster === 'volcano') {
@@ -103,9 +126,9 @@ export default function DisasterSimulatorPage() {
     if (activeDisaster === 'tsunami') {
       return tsunamiResult.allEvaluatedCities || [];
     }
-    // Standby mode: return all cities from volcanoResult with status 'safe'
-    return volcanoResult.allEvaluatedCities || [];
-  }, [activeDisaster, volcanoResult, tsunamiResult]);
+    // Standby mode: return all 514 cities in neutral standby status
+    return standbyEvaluatedCities;
+  }, [activeDisaster, volcanoResult, tsunamiResult, standbyEvaluatedCities]);
 
   // Handle map click: Smart Spatial Detection (Ocean -> Tsunami, Land -> Volcano)
   const handleMapClick = (lat: number, lng: number) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { DisasterType } from '@/types/disaster';
 import {
   Play,
@@ -38,17 +38,24 @@ export default function TimelineBar({
   onStartVolcano,
   onStartTsunami,
 }: TimelineBarProps) {
+  // Stable time reference to prevent interval teardown and drift on every tick
+  const currentTimeRef = useRef(currentTimeMinutes);
+  useEffect(() => {
+    currentTimeRef.current = currentTimeMinutes;
+  }, [currentTimeMinutes]);
+
   // Automatic timer tick for timeline playback
   useEffect(() => {
     if (!isPlaying || activeDisaster === 'standby') return;
 
     const intervalMs = Math.round(500 / playbackSpeed);
     const interval = setInterval(() => {
-      onTimeChange(currentTimeMinutes >= 60 ? 60 : currentTimeMinutes + 1);
+      const nextTime = currentTimeRef.current >= 60 ? 60 : currentTimeRef.current + 1;
+      onTimeChange(nextTime);
     }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [isPlaying, playbackSpeed, currentTimeMinutes, onTimeChange, activeDisaster]);
+  }, [isPlaying, playbackSpeed, onTimeChange, activeDisaster]);
 
   const isVolcano = activeDisaster === 'volcano';
   const isStandby = activeDisaster === 'standby';

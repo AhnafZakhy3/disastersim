@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   DisasterType,
   VolcanoPreset,
@@ -60,8 +60,19 @@ export default function ImpactSummary({
   onOpenExportModal,
 }: ImpactSummaryProps) {
   const [citySearch, setCitySearch] = useState('');
-  const [cityTab, setCityTab] = useState<'threatened' | 'all' | 'safe'>('threatened');
+  const [cityTab, setCityTab] = useState<'threatened' | 'all' | 'safe'>(
+    activeDisaster === 'standby' ? 'all' : 'threatened'
+  );
   const [cityIsland, setCityIsland] = useState('all');
+
+  // Auto-switch to 'all' in standby mode, and 'threatened' during active disaster
+  useEffect(() => {
+    if (activeDisaster === 'standby') {
+      setCityTab('all');
+    } else {
+      setCityTab('threatened');
+    }
+  }, [activeDisaster]);
 
   const evaluatedList = useMemo(() => {
     if (activeDisaster === 'volcano') {
@@ -74,19 +85,19 @@ export default function ImpactSummary({
   }, [activeDisaster, volcanoResult, tsunamiResult, cities]);
 
   const threatenedCount = useMemo(() => {
-    return evaluatedList.filter(c => c.status !== 'safe').length;
+    return evaluatedList.filter(c => c.status !== 'safe' && c.status !== 'standby').length;
   }, [evaluatedList]);
 
   const safeCount = useMemo(() => {
-    return evaluatedList.filter(c => c.status === 'safe').length;
+    return evaluatedList.filter(c => c.status === 'safe' || c.status === 'standby').length;
   }, [evaluatedList]);
 
   const filteredCities = useMemo(() => {
     return evaluatedList.filter(city => {
       // Tab filter (applies when not searching, or user can explicitly filter)
       if (!citySearch.trim()) {
-        if (cityTab === 'threatened' && city.status === 'safe') return false;
-        if (cityTab === 'safe' && city.status !== 'safe') return false;
+        if (cityTab === 'threatened' && (city.status === 'safe' || city.status === 'standby')) return false;
+        if (cityTab === 'safe' && city.status !== 'safe' && city.status !== 'standby') return false;
       }
 
       // Island filter
@@ -224,6 +235,8 @@ export default function ImpactSummary({
               ? 'bg-orange-950 text-orange-300 border-orange-500/50'
               : isAdvisory
               ? 'bg-yellow-950 text-yellow-300 border-yellow-500/50'
+              : city.status === 'standby'
+              ? 'bg-slate-900 text-slate-400 border-slate-700/60'
               : 'bg-emerald-950 text-emerald-300 border-emerald-500/50';
 
             return (
@@ -254,7 +267,7 @@ export default function ImpactSummary({
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-0.5">
-                  <span>{city.province} • {city.distanceKm} km</span>
+                  <span>{city.province}{city.status !== 'standby' ? ` • ${city.distanceKm} km` : ''}</span>
                   <span>~{city.population.toLocaleString('id-ID')} jiwa</span>
                 </div>
 
@@ -325,6 +338,11 @@ export default function ImpactSummary({
         </div>
 
         {renderCitiesDirectory()}
+
+        <div className="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-lg text-[10px] text-slate-500 leading-relaxed">
+          <span className="font-semibold text-slate-400 block mb-0.5">Disclaimer Edukasi & Pemodelan:</span>
+          DisasterSim adalah simulasi edukasi berbasis formula empiris (InaTEWS BMKG / PVMBG). Hasil pemodelan bukan peringatan dini resmi dan tidak menggantikan arahan evakuasi otoritas pemerintah (BMKG, PVMBG, BNPB, atau BPBD).
+        </div>
       </div>
     );
   }
@@ -533,6 +551,12 @@ export default function ImpactSummary({
           <FileDown className="w-4 h-4" />
           <span>Unduh Disaster Impact Brief (PDF)</span>
         </button>
+      </div>
+
+      {/* 9. Scientific & Official Authority Disclaimer */}
+      <div className="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-lg text-[10px] text-slate-500 leading-relaxed">
+        <span className="font-semibold text-slate-400 block mb-0.5">Disclaimer Edukasi & Pemodelan:</span>
+        DisasterSim adalah simulasi edukasi berbasis formula empiris (InaTEWS BMKG / PVMBG). Hasil pemodelan bukan peringatan dini resmi dan tidak menggantikan arahan evakuasi otoritas pemerintah (BMKG, PVMBG, BNPB, atau BPBD).
       </div>
     </div>
   );

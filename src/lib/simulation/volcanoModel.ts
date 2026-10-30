@@ -293,7 +293,7 @@ export function simulateVolcanoEruption(
   for (const city of INDONESIA_CITIES) {
     const dist = calculateHaversineDistanceKm(lat, lng, city.lat, city.lng);
     const bearing = calculateBearingDeg(lat, lng, city.lat, city.lng);
-    let angleDiff = Math.abs(bearing - scenario.windDirectionDeg);
+    let angleDiff = Math.abs(bearing - windDirectionDeg);
     if (angleDiff > 180) angleDiff = 360 - angleDiff;
     const inPlumeSector = angleDiff <= (spreadAngleDeg / 2) * 1.25;
 
