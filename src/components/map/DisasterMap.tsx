@@ -305,57 +305,57 @@ export default function DisasterMap({
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* 2. FLOATING HUD TOOLBAR (TOP CENTER - NEVER BLOCKED BY DRAWERS) */}
-      <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-full px-3 py-1.5 shadow-2xl">
+      <div className="absolute top-15 sm:top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 sm:gap-1.5 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-full px-2 sm:px-3 py-1 sm:py-1.5 shadow-2xl max-w-[calc(100vw-16px)]">
         {/* View Entire Indonesia */}
         <button
           onClick={handleViewAllIndonesia}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/30 shadow-sm transition-all"
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/30 shadow-sm transition-all shrink-0"
           title="Tampilkan Seluruh Kepulauan Indonesia"
         >
           <Globe className="w-3.5 h-3.5" />
-          <span>Seluruh Indonesia</span>
+          <span className="hidden sm:inline">Seluruh Indonesia</span>
         </button>
 
         {/* Focus to Active Hazard Target (Only active when in volcano/tsunami mode) */}
         {activeDisaster !== 'standby' && (
           <button
             onClick={handleRecenterHazard}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-cyan-500/30 shadow-sm transition-all"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-cyan-500/30 shadow-sm transition-all shrink-0"
             title="Fokuskan Kamera ke Lokasi Bencana Terpilih"
           >
             <LocateFixed className="w-3.5 h-3.5" />
-            <span>Fokus Target</span>
+            <span className="hidden sm:inline">Fokus Target</span>
           </button>
         )}
 
-        <div className="w-[1px] h-4 bg-slate-800 mx-1" />
+        <div className="w-[1px] h-3.5 sm:h-4 bg-slate-800 mx-0.5 sm:mx-1 shrink-0" />
 
         {/* Zoom Controls */}
         <button
           onClick={handleZoomIn}
-          className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-900 hover:bg-slate-800 text-slate-200 transition-colors"
+          className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full bg-slate-900 hover:bg-slate-800 text-slate-200 transition-colors shrink-0"
           title="Perbesar Peta (+)"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={handleZoomOut}
-          className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-900 hover:bg-slate-800 text-slate-200 transition-colors"
+          className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full bg-slate-900 hover:bg-slate-800 text-slate-200 transition-colors shrink-0"
           title="Perkecil Peta (-)"
         >
           <ZoomOut className="w-3.5 h-3.5" />
         </button>
 
-        <div className="w-[1px] h-4 bg-slate-800 mx-1" />
+        <div className="w-[1px] h-3.5 sm:h-4 bg-slate-800 mx-0.5 sm:mx-1 shrink-0" />
 
         {/* Basemap Switcher */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             onClick={() => {
               setShowBasemapMenu(!showBasemapMenu);
               setShowLayerFilter(false);
             }}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
               showBasemapMenu
                 ? 'bg-blue-600 text-white'
                 : 'bg-slate-900 hover:bg-slate-800 text-slate-300'
@@ -363,7 +363,7 @@ export default function DisasterMap({
             title="Ganti Lapisan Peta Dasar"
           >
             <MapIcon className="w-3.5 h-3.5 text-blue-400" />
-            <span className="capitalize">{basemapStyle === 'dark' ? 'Gelap' : basemapStyle === 'satellite' ? 'Satelit' : 'Jalan'}</span>
+            <span className="hidden sm:inline capitalize">{basemapStyle === 'dark' ? 'Gelap' : basemapStyle === 'satellite' ? 'Satelit' : 'Jalan'}</span>
           </button>
 
           {showBasemapMenu && (
@@ -409,13 +409,13 @@ export default function DisasterMap({
         </div>
 
         {/* Layer Filter Toggle */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             onClick={() => {
               setShowLayerFilter(!showLayerFilter);
               setShowBasemapMenu(false);
             }}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
               showLayerFilter
                 ? 'bg-rose-600 text-white'
                 : 'bg-slate-900 hover:bg-slate-800 text-slate-300'
@@ -423,7 +423,7 @@ export default function DisasterMap({
             title="Filter Lapisan Bencana"
           >
             <Layers className="w-3.5 h-3.5 text-rose-400" />
-            <span>Lapisan</span>
+            <span className="hidden sm:inline">Lapisan</span>
           </button>
 
           {/* Layer Filter Popover */}

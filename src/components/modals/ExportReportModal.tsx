@@ -126,17 +126,17 @@ export default function ExportReportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden my-8">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden my-2 sm:my-8">
         {/* Modal Top Bar */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-slate-950 border-b border-slate-800">
-          <div className="flex items-center gap-3 text-slate-100 font-bold text-sm">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-rose-500" />
-              <span>Disaster Impact Brief</span>
+        <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-3.5 bg-slate-950 border-b border-slate-800">
+          <div className="flex items-center gap-2 sm:gap-3 text-slate-100 font-bold text-xs sm:text-sm">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <FileText className="w-4 h-4 text-rose-500 shrink-0" />
+              <span className="truncate">Disaster Impact Brief</span>
             </div>
             {/* Quick Type Switcher */}
-            <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-xs">
+            <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[11px] sm:text-xs shrink-0">
               <button
                 type="button"
                 onClick={() => setReportType('volcano')}
