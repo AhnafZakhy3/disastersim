@@ -76,24 +76,16 @@ Proyek saat ini berada dalam tahap pengujian mendalam (*testing & debugging*), y
      - Kotak pencarian instan responsif (misal: mencari "Banda Aceh" atau "Sleman").
      - Tombol *"Fokuskan Peta"* yang mengarahkan kamera Leaflet (*fly-to*) secara mulus ke koordinat kota terpilih lengkap dengan popup telemetri demografi.
 
-5. **Suite Pengujian Otomatis 100 Skenario Geologis Indonesia**:
-   - Terintegrasi modul `scenarioRunner.ts` yang menguji **100 skenario bencana komprehensif**:
-     - **40 Skenario Vulkanik**: Letusan VEI 1 hingga 8 pada 40 gunung api berbeda dengan berbagai kecepatan/arah angin.
-     - **40 Skenario Tsunami**: Gempa Mw 7.0 hingga 9.2 pada 12 zona patahan megathrust/back-arc utama.
-     - **20 Skenario Koordinat Kustom**: Uji titik laut dalam (Laut Natuna, Selat Makassar, Teluk Tomini, Laut Sawu) dan daratan.
-   - **Hasil Uji**: **100/100 Lolos (100% Pass Rate)**, 0 error numerik (0 NaN), 51.400 evaluasi spasial kota, dengan rata-rata latensi super cepat **1.3 ms per skenario**.
-   - Dilengkapi modal interaktif dalam aplikasi (*"Audit 100 Skenario"*) dengan filter pencarian dan tombol *"Terapkan"* untuk memuat skenario mana pun ke simulator seketika.
-
-6. **Clean Slate Standby Mode (Kondisi Awal Bersih)**:
+5. **Clean Slate Standby Mode (Kondisi Awal Bersih)**:
    - Pengguna disambut dengan pemandangan tenang seluruh kepulauan nusantara (Sabang sampai Merauke pada level Zoom 5) tanpa simulasi bencana berjalan paksa.
    - Panel pengarah (*Standby Briefing*) memberikan instruksi cepat dan pengenalan legenda simbol kartografi resmi.
 
-7. **Smart Spatial Detection (Deteksi Spasial Cerdas)**:
+6. **Smart Spatial Detection (Deteksi Spasial Cerdas)**:
    - **Klik perairan / samudera**: Sistem otomatis menginisialisasi skenario *Tsunami Megathrust* di koordinat tersebut.
    - **Klik daratan**: Sistem otomatis menginisialisasi skenario *Kawah Vulkanik Kustom*.
    - **Klik langsung pada pin**: Langsung memfokuskan kamera dan memuat data detail gunung atau zona sesar yang dipilih.
 
-8. **Katalog Geologis Nasional Diperluas (78 Titik Gunung & Pegunungan)**:
+7. **Katalog Geologis Nasional Diperluas (78 Titik Gunung & Pegunungan)**:
    - **69 Gunung Berapi Aktif** tipe A/B mencakup seluruh busur vulkanik Indonesia:
      - **Jawa (24 Puncak)**: Merapi, Semeru, Bromo, Kelud, Raung, Ijen, Slamet, Lawu, Sindoro, Sumbing, Ciremai, Papandayan, Gede-Pangrango, Salak, Krakatau, dll.
      - **Sumatera (13 Puncak)**: Kaldera Toba (Supervulkan), Marapi, Kerinci, Sinabung, Dempo, Talang, Tandikat, Kaba, Sorik Marapi, Seulawah Agam, Bur ni Telong, Peuet Sague, Sibayak.
@@ -103,13 +95,13 @@ Proyek saat ini berada dalam tahap pengujian mendalam (*testing & debugging*), y
    - **9 Puncak Tektonik Non-Vulkanik**: Puncak Jaya (Carstensz), Puncak Mandala, Puncak Trikora, Latimojong, Bukit Raya, Binaiya, Mutis, Pesagi, Saran.
    - **Filter Kepulauan & Pencarian Cepat**: Filter navigasi instan (*Semua, Jawa, Sumatera, Bali-NT, Sulawesi, Maluku-Papua, Non-Vulkanik*) dan input pencarian teks reaktif.
 
-9. **Simulasi Tsunami Tektonik Otentik (NOAA MOST & BMKG InaTEWS Standard)**:
+8. **Simulasi Tsunami Tektonik Otentik (NOAA MOST & BMKG InaTEWS Standard)**:
    - **Muka Gelombang Elips Tektonik**: Mengikuti sudut jurus patahan (*Fault Strike Angle*) secara fisik, bukan lingkaran artifisial, lengkap dengan puncak gelombang (*leading crest*) dan palung hisap (*depression trough*).
    - **Garis Pantai Otentik & Inundasi**: Garis pantai riil berubah warna dinamis menjadi merah menyala saat waktu simulasi mencapai ETA gelombang ($T \ge \text{ETA}$), disertai koridor buffer rendaman darat.
    - **Pangkalan Data 40+ Hub Pesisir Riil**: Saat pengguna mengklik sembarang koordinat laut lepas, sistem memetakan kabupaten pesisir riil terdekat dan tempat evakuasi sementara (TES) dari pangkalan data kurasi nasional.
    - **Hitung Mundur Kedatangan Waktu-Nyata**: Tabel distrik menampilkan countdown sisa waktu, estimasi tinggi gelombang pantai (*Green's Law*), dan status dinamis `MENUNGGU` $\to$ `EVAKUASI` $\to$ `TERDAMPAK`.
 
-10. **Simulasi Erupsi Gunung Berapi Terintegrasi**:
+9. **Simulasi Erupsi Gunung Berapi Terintegrasi**:
    - Pengaturan indeks daya ledak letusan (VEI 1 hingga 8 termasuk Supervulkan).
    - Penyesuaian arah dan kecepatan angin troposfer untuk pemodelan dispersi abu vulkanik.
    - Estimasi ketinggian kolom erupsi (formula Wilson & Mastin).
@@ -117,13 +109,13 @@ Proyek saat ini berada dalam tahap pengujian mendalam (*testing & debugging*), y
    - Zona Kawasan Rawan Bencana (KRB III bahaya tinggi, KRB II sedang, KRB I rendah) sesuai regulasi PVMBG.
    - Perhitungan *Golden Time* luncuran awan panas guguran (PDC) dan proyeksi jalur banjir lahar dingin per lembah sungai nyata.
 
-11. **Interactive Timeline HUD Dock**:
+10. **Interactive Timeline HUD Dock**:
    - *Scrubber* perambatan waktu dinamis dari menit T+0 hingga T+60.
    - Kontrol pemutaran *Play/Pause*, percepatan simulasi (1x, 2x, 5x), dan tombol instan "Dampak Maksimal".
 
-12. **Multi-Basemap & Layer Filter**:
+11. **Multi-Basemap & Layer Filter**:
    - Pilihan lapisan peta dasar: **Esri Dark Gray Canvas**, **Citra Satelit Esri**, dan **OpenStreetMap**.
    - Filter visibilitas lapisan untuk menyembunyikan/menampilkan gunung aktif, non-vulkanik, zona megathrust, dan shelter evakuasi sementara (TES).
 
-13. **Ekspor Laporan Taktis (Disaster Impact Brief)**:
+12. **Ekspor Laporan Taktis (Disaster Impact Brief)**:
    - Generator dokumen ringkasan dampak darurat berstandar BNPB dengan opsi cetak ke PDF dan unduh gambar PNG resolusi tinggi.
