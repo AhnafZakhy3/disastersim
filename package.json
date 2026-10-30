@@ -10,7 +10,8 @@
     "test:security": "tsx scripts/test_security_sanitization.ts",
     "test:integrity": "tsx scripts/test_geometry_integrity.ts",
     "test": "npx tsc --noEmit && npm run test:security && npm run test:integrity && npm run audit",
-    "lint": "next lint"
+    "lint": "next lint",
+    "vercel-ignore-build": "bash -c 'git diff --quiet HEAD^ HEAD ./src ./next.config.ts ./package.json ./tailwind.config.ts ./vercel.json || exit 1'"
   },
   "dependencies": {
     "@turf/difference": "^7.4.0",

@@ -32,7 +32,7 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-      "style-src 'self' 'unsafe-inline' https://unpkg.com",
+      "style-src 'self' 'unsafe-inline'",
       "img-src 'self' blob: data: https://server.arcgisonline.com https://tile.openstreetmap.org",
       "font-src 'self'",
       `connect-src 'self' https://server.arcgisonline.com https://tile.openstreetmap.org${isDev ? " ws: http:" : ""}`,

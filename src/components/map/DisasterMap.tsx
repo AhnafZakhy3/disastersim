@@ -305,7 +305,7 @@ export default function DisasterMap({
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* 2. FLOATING HUD TOOLBAR (TOP CENTER - NEVER BLOCKED BY DRAWERS) */}
-      <div className="absolute top-15 sm:top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 sm:gap-1.5 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-full px-2 sm:px-3 py-1 sm:py-1.5 shadow-2xl max-w-[calc(100vw-16px)]">
+      <div className="absolute top-[58px] sm:top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 sm:gap-1.5 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-full px-2 sm:px-3 py-1 sm:py-1.5 shadow-2xl max-w-[calc(100vw-16px)]">
         {/* View Entire Indonesia */}
         <button
           onClick={handleViewAllIndonesia}

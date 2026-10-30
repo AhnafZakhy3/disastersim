@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, TouchEvent } from 'react';
+import React, { useState, useRef, TouchEvent } from 'react';
 import {
   DisasterType,
   VolcanoPreset,
@@ -82,23 +82,6 @@ export default function MobileBottomSheet({
 }: MobileBottomSheetProps) {
   const [heightState, setHeightState] = useState<BottomSheetHeight>('peek');
   const [activeTab, setActiveTab] = useState<MobileTab>('controls');
-
-  // Automatic interval playback
-  const currentTimeRef = useRef(currentTimeMinutes);
-  useEffect(() => {
-    currentTimeRef.current = currentTimeMinutes;
-  }, [currentTimeMinutes]);
-
-  useEffect(() => {
-    if (!isPlaying || activeDisaster === 'standby') return;
-    const intervalMs = Math.round(500 / playbackSpeed);
-    const interval = setInterval(() => {
-      const nextTime = currentTimeRef.current >= 60 ? 60 : currentTimeRef.current + 1;
-      onTimeChange(nextTime);
-    }, intervalMs);
-
-    return () => clearInterval(interval);
-  }, [isPlaying, playbackSpeed, onTimeChange, activeDisaster]);
 
   // Touch Drag Gestures for handle
   const touchStartYRef = useRef<number | null>(null);
@@ -308,7 +291,10 @@ export default function MobileBottomSheet({
                 tsunamiResult={tsunamiResult}
                 currentTimeMinutes={currentTimeMinutes}
                 cities={cities}
-                onFlyToCity={onFlyToCity}
+                onFlyToCity={(city) => {
+                  if (heightState === 'full') setHeightState('half');
+                  onFlyToCity?.(city);
+                }}
                 onOpenExportModal={onOpenExportModal}
               />
             </div>

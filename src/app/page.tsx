@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   DisasterType,
@@ -79,6 +79,24 @@ export default function DisasterSimulatorPage() {
   const [currentTimeMinutes, setCurrentTimeMinutes] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+
+  // Centralized playback timer (Single Source of Truth - prevents double ticks)
+  const currentTimeRef = useRef(currentTimeMinutes);
+  useEffect(() => {
+    currentTimeRef.current = currentTimeMinutes;
+  }, [currentTimeMinutes]);
+
+  useEffect(() => {
+    if (!isPlaying || activeDisaster === 'standby') return;
+
+    const intervalMs = Math.round(500 / playbackSpeed);
+    const interval = setInterval(() => {
+      const nextTime = currentTimeRef.current >= 60 ? 60 : currentTimeRef.current + 1;
+      setCurrentTimeMinutes(nextTime);
+    }, intervalMs);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, playbackSpeed, activeDisaster]);
 
   // Floating HUD Panels Visibility
   const [showLeftPanel, setShowLeftPanel] = useState<boolean>(true);
