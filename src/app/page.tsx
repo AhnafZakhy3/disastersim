@@ -20,7 +20,6 @@ import ScenarioControls from '@/components/panels/ScenarioControls';
 import ImpactSummary from '@/components/panels/ImpactSummary';
 import TimelineBar from '@/components/panels/TimelineBar';
 import ExportReportModal from '@/components/modals/ExportReportModal';
-import ScenarioAuditModal from '@/components/modals/ScenarioAuditModal';
 import {
   Flame,
   Waves,
@@ -31,7 +30,6 @@ import {
   Sliders,
   BarChart3,
   Shield,
-  ShieldCheck,
 } from 'lucide-react';
 
 // Dynamic import of Leaflet DisasterMap with zero SSR
@@ -85,9 +83,8 @@ export default function DisasterSimulatorPage() {
   const [showLeftPanel, setShowLeftPanel] = useState<boolean>(true);
   const [showRightPanel, setShowRightPanel] = useState<boolean>(true);
 
-  // Modal export & audit state
+  // Modal export state
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
   const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // Compute simulation outputs reactively with zero lag (sub-second memoization)
@@ -211,55 +208,6 @@ export default function DisasterSimulatorPage() {
     setCurrentTimeMinutes(25);
   };
 
-  const handleApplyVolcanoScenario = (scenario: VolcanoScenario, volcano: VolcanoPreset) => {
-    setSelectedVolcano(volcano);
-    setActiveDisaster('volcano');
-    setVolcanoScenario(scenario);
-    setCurrentTimeMinutes(20);
-    setIsPlaying(false);
-    setFlyToLocation({ lat: volcano.lat, lng: volcano.lng });
-  };
-
-  const handleApplyTsunamiScenario = (scenario: TsunamiScenario, fault: TsunamiFaultPreset) => {
-    setSelectedFault(fault);
-    setActiveDisaster('tsunami');
-    setTsunamiScenario(scenario);
-    setCurrentTimeMinutes(25);
-    setIsPlaying(false);
-    setFlyToLocation({ lat: fault.lat, lng: fault.lng });
-  };
-
-  const handleApplyCustomScenario = (
-    type: 'volcano' | 'tsunami',
-    location: { lat: number; lng: number; name: string },
-    params: { vei?: number; mw?: number; depthKm?: number; windDeg?: number; windSpeed?: number }
-  ) => {
-    if (type === 'tsunami') {
-      setActiveDisaster('tsunami');
-      setTsunamiScenario({
-        faultId: selectedFault.id,
-        isCustom: true,
-        customLocation: location,
-        mw: params.mw || 8.5,
-        depthKm: params.depthKm || 20,
-      });
-      setCurrentTimeMinutes(25);
-    } else {
-      setActiveDisaster('volcano');
-      setVolcanoScenario({
-        volcanoId: selectedVolcano.id,
-        isCustom: true,
-        customLocation: location,
-        vei: params.vei || 3,
-        windDirectionDeg: params.windDeg || 270,
-        windSpeedKmh: params.windSpeed || 30,
-      });
-      setCurrentTimeMinutes(20);
-    }
-    setIsPlaying(false);
-    setFlyToLocation({ lat: location.lat, lng: location.lng });
-  };
-
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#070B14] text-slate-100 font-sans select-none">
       {/* ============================================================== */}
@@ -362,16 +310,6 @@ export default function DisasterSimulatorPage() {
             <Activity className="w-3.5 h-3.5" />
             <span>60 FPS • IN-MEMORY</span>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setIsAuditModalOpen(true)}
-            className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 transition-colors shadow-sm"
-            title="Buka suite pengujian otomatis 100 skenario bencana"
-          >
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span className="hidden sm:inline">Audit 100 Skenario</span>
-          </button>
 
           <button
             type="button"
@@ -503,17 +441,6 @@ export default function DisasterSimulatorPage() {
         tsunamiScenario={tsunamiScenario}
         volcanoResult={volcanoResult}
         tsunamiResult={tsunamiResult}
-      />
-
-      {/* ============================================================== */}
-      {/* 7. SCENARIO AUDIT SUITE MODAL (100 SCENARIOS)                  */}
-      {/* ============================================================== */}
-      <ScenarioAuditModal
-        isOpen={isAuditModalOpen}
-        onClose={() => setIsAuditModalOpen(false)}
-        onApplyVolcanoScenario={handleApplyVolcanoScenario}
-        onApplyTsunamiScenario={handleApplyTsunamiScenario}
-        onApplyCustomScenario={handleApplyCustomScenario}
       />
     </div>
   );
