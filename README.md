@@ -38,8 +38,14 @@ Aplikasi ini mengadopsi standar ilmiah dari **PVMBG** (Pusat Vulkanologi dan Mit
    npm run dev
    ```
 
+   *(Opsional) Menguji hasil kompilasi produksi secara lokal:*
+   ```bash
+   npm run build
+   npm run start
+   ```
+
 4. **Buka aplikasi di peramban (Browser)**:
-   Buka alamat [http://localhost:3000](http://localhost:3000) pada browser pilihan Anda.
+   Buka alamat [http://localhost:3000](http://localhost:3000) pada browser.
 
 
 ## Progres Saat Ini
