@@ -7,3 +7,4 @@ PRD.md
 REMEDIATION_ROADMAP.md
 *.py
 __pycache__/
+.agent/
