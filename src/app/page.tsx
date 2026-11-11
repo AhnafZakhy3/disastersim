@@ -15,7 +15,10 @@ import { INDONESIA_TSUNAMI_FAULTS } from '@/data/tsunamiFaults';
 import { INDONESIA_CITIES } from '@/data/indonesiaCities';
 import { simulateVolcanoEruption } from '@/lib/simulation/volcanoModel';
 import { simulateTsunamiImpact } from '@/lib/simulation/tsunamiModel';
-import { isOceanCoordinate } from '@/lib/geoUtils';
+import { isOceanCoordinate, createCirclePolygon } from '@/lib/geoUtils';
+import { EvacuationRouteResult, RouteOrigin } from '@/lib/routing/routingTypes';
+import { calculateOptimalEvacuationRoute } from '@/lib/routing/routingClient';
+import { HazardZonePolygon } from '@/lib/routing/hazardCheck';
 import ScenarioControls from '@/components/panels/ScenarioControls';
 import ImpactSummary from '@/components/panels/ImpactSummary';
 import TimelineBar from '@/components/panels/TimelineBar';
@@ -105,6 +108,51 @@ export default function DisasterSimulatorPage() {
   // Modal export state
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Evacuation routing state
+  const [evacuationRoute, setEvacuationRoute] = useState<EvacuationRouteResult | null>(null);
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState<boolean>(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [isPickingOrigin, setIsPickingOrigin] = useState<boolean>(false);
+  const [customOriginCoord, setCustomOriginCoord] = useState<{
+    lat: number;
+    lng: number;
+    name?: string;
+  } | null>(null);
+
+  const handlePickOrigin = (lat: number, lng: number) => {
+    setCustomOriginCoord({
+      lat,
+      lng,
+      name: `Titik Warga (${lat.toFixed(4)}°, ${lng.toFixed(4)}°)`,
+    });
+    setIsPickingOrigin(false);
+  };
+
+  const handleTogglePickOrigin = () => {
+    setIsPickingOrigin((prev) => !prev);
+  };
+
+  const handleResetOrigin = () => {
+    setCustomOriginCoord(null);
+    setIsPickingOrigin(false);
+  };
+
+  // Automatically clear stale evacuation route when scenario, preset, or active disaster changes (ROUTE-07)
+  useEffect(() => {
+    setEvacuationRoute(null);
+    setRouteError(null);
+  }, [
+    activeDisaster,
+    selectedVolcano.id,
+    selectedFault.id,
+    volcanoScenario.isCustom,
+    volcanoScenario.customLocation?.lat,
+    volcanoScenario.customLocation?.lng,
+    tsunamiScenario.isCustom,
+    tsunamiScenario.customLocation?.lat,
+    tsunamiScenario.customLocation?.lng,
+  ]);
 
   // Compute simulation outputs reactively with zero lag (sub-second memoization)
   const volcanoResult = useMemo(() => {
@@ -227,6 +275,203 @@ export default function DisasterSimulatorPage() {
     setCurrentTimeMinutes(25);
   };
 
+  // Calculate Pedestrian Evacuation Route to Verified TES (ROUTE-01 to ROUTE-06)
+  const handleCalculateEvacuationRoute = async () => {
+    if (activeDisaster === 'standby') {
+      setRouteError('Pilih jenis bencana (Gunung Api atau Tsunami) terlebih dahulu sebelum menghitung rute evakuasi.');
+      return;
+    }
+
+    setIsCalculatingRoute(true);
+    setRouteError(null);
+
+    try {
+      let origin: RouteOrigin;
+      const hazardZones: HazardZonePolygon[] = [];
+
+      // Priority 1: User's personal pinned origin coordinate
+      if (customOriginCoord) {
+        origin = {
+          name: customOriginCoord.name || `Titik Warga (${customOriginCoord.lat.toFixed(4)}°, ${customOriginCoord.lng.toFixed(4)}°)`,
+          lat: customOriginCoord.lat,
+          lng: customOriginCoord.lng,
+          type: 'point',
+        };
+      } else if (activeDisaster === 'volcano') {
+        const vLat = volcanoScenario.isCustom && volcanoScenario.customLocation
+          ? volcanoScenario.customLocation.lat
+          : selectedVolcano.lat;
+        const vLng = volcanoScenario.isCustom && volcanoScenario.customLocation
+          ? volcanoScenario.customLocation.lng
+          : selectedVolcano.lng;
+
+        // Origin represents residential area / settlement, NOT the volcanic crater
+        if (!volcanoScenario.isCustom && selectedVolcano.id === 'merapi') {
+          origin = {
+            name: 'Pemukiman Kaliurang, Sleman (Lereng Selatan Merapi)',
+            lat: -7.595,
+            lng: 110.428,
+            type: 'point',
+          };
+        } else {
+          origin = {
+            name: `Zona Pemukiman Kaki ${volcanoScenario.isCustom ? 'Gunung Kustom' : selectedVolcano.name}`,
+            lat: vLat - 0.04,
+            lng: vLng,
+            type: 'point',
+          };
+        }
+      } else {
+        // Tsunami disaster: origin represents coastal resident community
+        if (!tsunamiScenario.isCustom && selectedFault.id === 'megathrust_mentawai') {
+          origin = {
+            name: 'Zona Pemukiman Pantai Purus, Padang Barat',
+            lat: -0.938,
+            lng: 100.354,
+            type: 'coast',
+          };
+        } else if (!tsunamiScenario.isCustom && selectedFault.id === 'palu_koro') {
+          origin = {
+            name: 'Pemukiman Terdampak Kelurahan Lere, Palu Barat',
+            lat: -0.887,
+            lng: 119.852,
+            type: 'coast',
+          };
+        } else if (!tsunamiScenario.isCustom && selectedFault.id === 'megathrust_central_java') {
+          origin = {
+            name: 'Pemukiman Pesisir Parangtritis, Bantul (DIY)',
+            lat: -8.020,
+            lng: 110.330,
+            type: 'coast',
+          };
+        } else {
+          // Custom scenario or other fault: check for evaluated affected city
+          const affectedCity = currentEvaluatedCities.find(
+            (c) => c.status === 'danger' || c.status === 'warning'
+          );
+          if (affectedCity) {
+            origin = {
+              name: `Zona Pesisir Terdampak ${affectedCity.cityName}`,
+              lat: affectedCity.lat,
+              lng: affectedCity.lng,
+              type: 'city',
+            };
+          } else {
+            origin = {
+              name: 'Pemukiman Pesisir Parangtritis, Bantul (DIY)',
+              lat: -8.020,
+              lng: 110.330,
+              type: 'coast',
+            };
+          }
+        }
+      }
+
+      // Populate multi-tier hazard zones for realistic avoidance & evaluation
+      if (activeDisaster === 'volcano') {
+        const vLat = volcanoScenario.isCustom && volcanoScenario.customLocation
+          ? volcanoScenario.customLocation.lat
+          : selectedVolcano.lat;
+        const vLng = volcanoScenario.isCustom && volcanoScenario.customLocation
+          ? volcanoScenario.customLocation.lng
+          : selectedVolcano.lng;
+
+        if (volcanoResult.krb3RadiusKm > 0) {
+          hazardZones.push({
+            name: `Zona Bahaya Mutlak KRB III (${volcanoResult.krb3RadiusKm} km)`,
+            severity: 'critical',
+            polygon: createCirclePolygon(vLat, vLng, volcanoResult.krb3RadiusKm, 24),
+          });
+        }
+        if (volcanoResult.krb2RadiusKm > 0) {
+          hazardZones.push({
+            name: `Zona Waspada KRB II (${volcanoResult.krb2RadiusKm} km)`,
+            severity: 'high',
+            polygon: createCirclePolygon(vLat, vLng, volcanoResult.krb2RadiusKm, 24),
+          });
+        }
+        if (volcanoResult.krb1RadiusKm > 0) {
+          hazardZones.push({
+            name: `Zona Siaga KRB I (${volcanoResult.krb1RadiusKm} km)`,
+            severity: 'medium',
+            polygon: createCirclePolygon(vLat, vLng, volcanoResult.krb1RadiusKm, 24),
+          });
+        }
+        if (volcanoResult.ashIsopachTiers && volcanoResult.ashIsopachTiers.length > 0) {
+          volcanoResult.ashIsopachTiers.forEach((tier) => {
+            if (tier.polygon.length > 2) {
+              hazardZones.push({
+                name: `Sebaran Abu: ${tier.label}`,
+                severity: tier.id === 'tier_heavy' ? 'high' : tier.id === 'tier_medium' ? 'medium' : 'low',
+                polygon: tier.polygon,
+              });
+            }
+          });
+        }
+        if (
+          volcanoScenario.enableWindShear &&
+          volcanoResult.upperAshPlumePolygon &&
+          volcanoResult.upperAshPlumePolygon.length > 2
+        ) {
+          hazardZones.push({
+            name: 'Sebaran Abu Stratosfer (Wind Shear)',
+            severity: 'medium',
+            polygon: volcanoResult.upperAshPlumePolygon,
+          });
+        }
+      } else {
+        const epicLat = tsunamiScenario.isCustom && tsunamiScenario.customLocation
+          ? tsunamiScenario.customLocation.lat
+          : selectedFault.lat;
+        const epicLng = tsunamiScenario.isCustom && tsunamiScenario.customLocation
+          ? tsunamiScenario.customLocation.lng
+          : selectedFault.lng;
+
+        const maxWaveRadiusKm = tsunamiResult.isochroneRings?.length
+          ? Math.max(...tsunamiResult.isochroneRings.map((r) => r.radiusKm))
+          : 50;
+
+        if (maxWaveRadiusKm > 0) {
+          hazardZones.push({
+            name: `Zona Propagasi Gelombang Tsunami (${Math.round(maxWaveRadiusKm)} km)`,
+            severity: 'critical',
+            polygon: createCirclePolygon(epicLat, epicLng, Math.min(maxWaveRadiusKm, 80), 24),
+          });
+        }
+      }
+
+      const affectedPopulation = activeDisaster === 'volcano'
+        ? volcanoResult.affectedPopulation
+        : tsunamiResult.affectedPopulation;
+
+      const result = await calculateOptimalEvacuationRoute({
+        origin,
+        disasterType: activeDisaster,
+        hazardZones,
+        affectedPopulation,
+        allowDetour: true,
+      });
+
+      if (result.success) {
+        setEvacuationRoute(result);
+        setRouteError(null);
+      } else {
+        setEvacuationRoute(null);
+        setRouteError(result.error || 'Gagal menghitung rute evakuasi. Silakan periksa jaringan internet Anda.');
+      }
+    } catch (err: any) {
+      setEvacuationRoute(null);
+      setRouteError(err?.message || 'Terjadi kesalahan sistem saat menghubungi layanan rute.');
+    } finally {
+      setIsCalculatingRoute(false);
+    }
+  };
+
+  const handleClearRoute = () => {
+    setEvacuationRoute(null);
+    setRouteError(null);
+  };
+
   return (
     <div className="relative w-screen h-screen h-[100dvh] overflow-hidden bg-[#070B14] text-slate-100 font-sans select-none">
       {/* ============================================================== */}
@@ -244,6 +489,10 @@ export default function DisasterSimulatorPage() {
           currentTimeMinutes={currentTimeMinutes}
           cities={currentEvaluatedCities}
           flyToLocation={flyToLocation}
+          evacuationRoute={evacuationRoute}
+          isPickingOrigin={isPickingOrigin}
+          customOriginCoord={customOriginCoord}
+          onPickOrigin={handlePickOrigin}
           onMapClick={handleMapClick}
           onSelectVolcano={handleSelectVolcano}
           onSelectFault={handleSelectFault}
@@ -272,7 +521,7 @@ export default function DisasterSimulatorPage() {
               </span>
             </div>
             <p className="hidden lg:block text-[10px] text-slate-400 font-medium">
-              SIMULASI EMPIRIS CEPAT LETUSAN GUNUNG BERAPI & TSUNAMI • PVMBG & BMKG
+              PROTOTIPE SIMULASI RISIKO GEOLOGIS • PROSEDUR EDUKATIF & DEMONSTRASI RUTE
             </p>
           </div>
         </div>
@@ -333,7 +582,7 @@ export default function DisasterSimulatorPage() {
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-emerald-400">
             <Activity className="w-3.5 h-3.5" />
-            <span>60 FPS • IN-MEMORY</span>
+            <span>KOMPUTASI IN-MEMORY</span>
           </div>
 
           <button
@@ -425,6 +674,15 @@ export default function DisasterSimulatorPage() {
             tsunamiResult={tsunamiResult}
             currentTimeMinutes={currentTimeMinutes}
             cities={currentEvaluatedCities}
+            evacuationRoute={evacuationRoute}
+            isCalculatingRoute={isCalculatingRoute}
+            routeError={routeError}
+            isPickingOrigin={isPickingOrigin}
+            customOriginCoord={customOriginCoord}
+            onTogglePickOrigin={handleTogglePickOrigin}
+            onResetOrigin={handleResetOrigin}
+            onCalculateRoute={handleCalculateEvacuationRoute}
+            onClearRoute={handleClearRoute}
             onFlyToCity={(city) => setFlyToLocation({ lat: city.lat, lng: city.lng })}
             onOpenExportModal={() => setIsExportModalOpen(true)}
           />
@@ -485,6 +743,15 @@ export default function DisasterSimulatorPage() {
             setIsPlaying(false);
           }}
           cities={currentEvaluatedCities}
+          evacuationRoute={evacuationRoute}
+          isCalculatingRoute={isCalculatingRoute}
+          routeError={routeError}
+          isPickingOrigin={isPickingOrigin}
+          customOriginCoord={customOriginCoord}
+          onTogglePickOrigin={handleTogglePickOrigin}
+          onResetOrigin={handleResetOrigin}
+          onCalculateRoute={handleCalculateEvacuationRoute}
+          onClearRoute={handleClearRoute}
           onFlyToCity={(city) => setFlyToLocation({ lat: city.lat, lng: city.lng })}
           onOpenExportModal={() => setIsExportModalOpen(true)}
           onTriggerSimulation={() => {
@@ -508,6 +775,7 @@ export default function DisasterSimulatorPage() {
         tsunamiScenario={tsunamiScenario}
         volcanoResult={volcanoResult}
         tsunamiResult={tsunamiResult}
+        evacuationRoute={evacuationRoute}
       />
     </div>
   );

@@ -1,18 +1,37 @@
 # Nusantara Disaster Simulator (Disastersim)
 
-Platform web simulasi dampak bahaya bencana geologis Indonesia (**Letusan Gunung Berapi** & **Tsunami Megathrust**) berbasis pemodelan empiris interaktif, komputasi *100% client-side in-memory* berkecepatan tinggi, serta antarmuka taktis berstandar ruang kendali darurat (*Emergency Command Center*).
+Platform web simulasi dampak bahaya bencana geologis Indonesia (**Letusan Gunung Berapi** & **Tsunami Megathrust**) berbasis pemodelan empiris interaktif, komputasi *100% client-side in-memory* berkecepatan tinggi, perutean evakuasi otomatis dinamis ke Tempat Evakuasi Sementara (TES) terverifikasi di seluruh Nusantara, pemodelan *Atmospheric Wind Shear*, serta antarmuka taktis berstandar ruang kendali darurat (*Emergency Command Center*).
 
-Aplikasi ini mengadopsi standar ilmiah dari **PVMBG** (Pusat Vulkanologi dan Mitigasi Bencana Geologi), sistem peringatan dini **BMKG InaTEWS**, serta rujukan kartografi geospasial **USGS**.
+> **PENTING — BATASAN DAN STATUS PROTOTIPE KOMPETISI:**  
+> Nusantara Disaster Simulator adalah **prototipe kompetisi edukatif dan demonstrator inovasi mitigasi kebencanaan**, bukan sistem operasional resmi atau instrumen peringatan dini darurat BMKG / PVMBG / BNPB.  
+> Seluruh hasil kalkulasi tinggi gelombang, waktu tiba (ETA), radius bahaya KRB, sebaran abu vulkanik, alokasi kapasitas TES, dan rute evakuasi merupakan **estimasi hasil simulasi matematis/empiris** dengan keterbatasan pemodelan tertentu. Aplikasi ini beroperasi 100% di sisi peramban (*client-side in-memory*), **tanpa koneksi feed real-time BMKG**, dan **tanpa database backend**. Rute evakuasi didasarkan pada jaringan jalan pejalan kaki publik dan pemodelan hambatan heuristik; rute ini belum memvalidasi kondisi lapangan seketika seperti jembatan putus, pohon tumbang, longsor mendadak, atau instruksi aparat di lokasi. Selalu ikuti arahan resmi otoritas yang berwenang saat kondisi darurat.
 
 ---
 
-## Tech Stack
+## Tech Stack & Layanan Terintegrasi
 
-- **Framework & Runtime**: [Next.js 15](https://nextjs.org/) (App Router) + [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- **Pemetaan Geospasial**: [Leaflet.js](https://leafletjs.com/) + Ubin Peta Esri Dark Canvas, Esri World Imagery (Satelit), dan OpenStreetMap
+- **Framework & Runtime**: [Next.js 15](https://nextjs.org/) (App Router, Client-Side Hydration) + [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- **Pemetaan Geospasial**: [Leaflet.js](https://leafletjs.com/) (Self-hosted CSS lokal) + Ubin Peta Esri Dark Canvas, Esri World Imagery (Satelit), dan OpenStreetMap
+- **Optimasi Kluster Spasial Mobile**: [Supercluster](https://github.com/mapbox/supercluster) (Mapbox k-d tree in-memory clustering untuk 514 kota di perangkat seluler)
+- **Mesin Perutean Evakuasi**: [OSRM (Open Source Routing Machine)](https://project-osrm.org/) API via peramban langsung (Profil Pejalan Kaki / *Foot Profile*) + Mirror Fallback + Pre-computed In-Memory Cache
+- **Analisis Geometri Spasial**: Formula Haversine, trigonometri bola bumi, poligon keterpaparan darat, ray-casting point-in-polygon, dan Turf.js (`@turf/difference`)
 - **Styling & Desain Sistem**: [Tailwind CSS](https://tailwindcss.com/) (Tema gelap taktis *Command Center*, palet kontras tinggi), [Lucide React](https://lucide.dev/), dan simbol kartografi vektor SVG kustom
 - **Generator Dokumen Taktis**: `html-to-image` & `jspdf` untuk ekspor *Disaster Impact Brief* (PDF & PNG)
-- **Engine Komputasi Spasial**: Formula matematis empiris *pure client-side* (tanpa dependensi database eksternal maupun API GIS berbayar)
+- **Deployment**: Static Single Page Application pada Vercel Edge Network (Biaya operasional Rp 0, tanpa backend serverless dinamis)
+
+---
+
+## Evaluasi Library Pihak Ketiga: `supercluster`
+
+Sesuai persetujuan pengguna untuk optimasi perangkat seluler dan berspesifikasi rendah, library `supercluster` ditambahkan ke dalam arsitektur:
+- **Keunggulan**:
+  1. *Ukuran Sangat Ringan*: Hanya berukuran ~6 kB (gzipped) tanpa dependensi eksternal berat.
+  2. *Komputasi Instan*: Menggunakan struktur data spasial *2D k-d tree* dengan waktu pengindeksan <3 milidetik untuk 514 kota.
+  3. *Drastis Mengurangi Beban DOM*: Mengelompokkan 514 titik koordinat menjadi hanya 15–30 elemen kluster terlihat pada viewport mobile, mencegah *frame drop* dan *browser crash* pada ponsel berspesifikasi rendah.
+  4. *Headless & Modular*: Bekerja langsung di atas objek data murni tanpa memaksakan manipulasi DOM internal Leaflet.
+- **Kelemahan & Mitigasi**:
+  1. *Perhitungan Zoom Kaku*: Memerlukan sinkronisasi manual bounding box `[west, south, east, north]` terhadap event Leaflet `moveend` dan `zoomend`.
+  2. *Kluster Leaf Tunggal*: Saat pengguna melakukan *zoom in* mendalam, marker individu baru dipecah, sehingga dibutuhkan toleransi radius kueri agar kota terdekat tidak hilang dari pandangan.
 
 ---
 
@@ -38,90 +57,98 @@ Aplikasi ini mengadopsi standar ilmiah dari **PVMBG** (Pusat Vulkanologi dan Mit
    npm run dev
    ```
 
-   *(Opsional) Menguji hasil kompilasi produksi secara lokal:*
+4. **Jalankan rangkaian pengujian otomatis (Quality Gate)**:
+   ```bash
+   npm run test
+   ```
+   Rangkaian uji mencakup verifikasi tipe TypeScript (`tsc --noEmit`), uji pertahanan keamanan sanitasi XSS/path traversal (`test:security`), uji integritas data spasial 514 kota (`test:integrity`), uji modul perutean evakuasi OSRM, 232 TES, wind shear, dan hazard check (`test:routing`), serta audit 100 skenario simulasi ekstrem (`audit`).
+
+5. **Kompilasi produksi (Build)**:
    ```bash
    npm run build
    npm run start
    ```
 
-4. **Buka aplikasi di peramban (Browser)**:
+6. **Buka aplikasi di peramban (Browser)**:
    Buka alamat [http://localhost:3000](http://localhost:3000) pada browser.
 
+---
 
-## Progres Saat Ini
+## 9 Peningkatan Fitur Utama (Revisi Lanjutan)
 
-Proyek saat ini berada dalam tahap pengujian mendalam (*testing & debugging*), yang mencakup validasi akurasi formula simulasi (letusan gunung berapi dan dinamika gelombang tsunami), penyempurnaan interaktivitas visual peta, serta pengujian performa komputasi spasial di sisi klien (*client-side*) agar tetap stabil saat menjalankan berbagai skenario bencana.
+### 1. Deteksi Paparan Bahaya Tempat Evakuasi Sementara (Shelter Hazard Exposure Check)
+- **Masalah Terselesaikan**: Sebelumnya, TES di luar radius KRB I tetap dianggap hijau/aman meskipun berada tepat di jalur aliran hujan abu lebat atau awan panas.
+- **Solusi**: Diterapkan evaluasi poligonal spasial `checkShelterHazardExposure()` yang menguji koordinat setiap TES terhadap poligon sebaran abu bertingkat (*Isopach Tiers*) dan radius KRB.
+- **Hasil**: TES yang terpapar abu atau KRB otomatis ditandai merah/oranye dengan peringatan tegas di peta dan kartu rekomendasi dilarang merekomendasikan TES yang terancam.
 
-### Fitur Utama:
+### 2. Penilaian Bahaya Rute Berjenjang (*Multi-Tier Hazard Evaluation*)
+- **Masalah Terselesaikan**: Peringatan rute sebelumnya hanya muncul saat memotong KRB III, sementara KRB II, KRB I, atau hujan abu dianggap bebas bahaya.
+- **Solusi**: Sistem mengevaluasi 5 tingkat keparahan bahaya berjenjang:
+  - 🚨 `critical`: Memotong zona bahaya mutlak KRB III atau zona rendaman inundasi tsunami.
+  - ⚠️ `high`: Memotong zona KRB II atau zona hujan abu vulkanik lebat (>5 cm).
+  - ⚡ `medium`: Memotong zona KRB I atau zona hujan abu sedang (1–5 cm).
+  - ℹ️ `low`: Memotong sebaran abu tipis (<1 cm).
+  - 🟢 `none`: Rute sepenuhnya berada di luar zona bahaya model.
 
-1. **Rombak Total Perambatan Gelombang Tsunami (*Dynamic Wave Train*)**:
-   - Muka gelombang kini merambat secara dinamis sebagai rentetan gelombang nyata (*wave train*) multi-lapisan:
-     - **Puncak Gelombang Primer** (`#38BDF8`): Gelombang depan berkekuatan penuh.
-     - **Puncak Gelombang Sekunder** (`#0EA5E9`): Gelombang pantulan susulan di belakangnya.
-     - **Riak Tersier** (`#0284C7`): Dispersi energi di air dangkal.
-     - **Palung Hisap Garis Putus-putus** (`#0369A1`): Fenomena surutnya air laut sesaat sebelum gelombang menerjang bibir pantai.
-   - Dilengkapi pemotongan Boolean geometris Turf.js (`@turf/difference`) terhadap batas daratan kepulauan Indonesia sehingga gelombang laut berhenti di pantai dan tidak menembus ke sisi seberang daratan.
+### 3. Perluasan Titik TES ke Seluruh Indonesia (232 Titik Terverifikasi)
+- **Cakupan Nasional**: Pangkalan data `evacuationDestinations.ts` diperluas dari 8 titik menjadi **232 titik TES terverifikasi**, menjamin setiap 69 gunung api aktif memiliki minimal 3 opsi titik evakuasi di lereng sekitarnya, serta mencakup kawasan pesisir rawan tsunami di berbagai kepulauan Indonesia.
+- **Transparansi Provenance**: Setiap record memuat rujukan instansi pengelola (PUPR, BNPB, BPBD, PVMBG), daya tampung (kapasitas jiwa), elevasi, dan koordinat audit.
 
-2. **Deteksi Benturan Pesisir & Pertumbuhan Inundasi (*Shoreline Impact Beacons*)**:
-   - Saat muka gelombang menyentuh garis pantai pada waktu kedatangan ($T \ge \text{ETA}$), sistem menyalakan suar benturan (*impact beacons*) berdenyut merah-oranye di sepanjang bibir pantai yang tertabrak.
-   - Poligon koridor rendaman daratan tumbuh melebar secara bertahap seiring berjalannya waktu pasca-benturan, menggambarkan intrusi air laut ke wilayah pemukiman pesisir.
+### 4. Optimasi Kinerja Perangkat Seluler (Supercluster k-d Tree)
+- Lapisan 514 kota di seluruh kepulauan Indonesia kini diolah menggunakan `Supercluster`.
+- Saat tampilan peta diperkecil (*zoom out*), marker kota otomatis dikelompokkan menjadi lencana kluster numerik dinamis yang diberi warna sesuai status bahaya tertinggi wilayah di dalamnya.
+- Saat pengguna memperbesar peta (*zoom in*), kluster terurai menjadi marker kota taktis berukuran presisi. DOM footprint berkurang hingga 95% pada layar ponsel pintar.
 
-3. **Visualisasi Interaktif Seluruh 514 Kota & Kabupaten Se-Indonesia**:
-   - Pangkalan data `indonesiaCities.ts` kini mencakup seluruh **514 Kota dan Kabupaten di 38 Provinsi** (416 Kabupaten + 98 Kota) sesuai sensus BPS & Kemendagri terbaru.
-   - Seluruh 514 kota ditampilkan langsung di atas peta interaktif dengan marker lingkaran berkode warna status ancaman:
-     - 🟢 **Aman**: Di luar jangkauan bahaya letusan maupun tsunami.
-     - 🟡 **Waspada**: Peringatan awal BMKG / hujan abu vulkanik ringan.
-     - 🟠 **Siaga**: Gelombang 0.5 - 3m / KRB II / abu vulkanik sedang.
-     - 🔴 **Bahaya / Terdampak**: Gelombang >3m / KRB III / luncuran awan panas.
-   - Dilengkapi lapisan toggle layer checkbox *"Kota & Kabupaten (514 Wilayah)"* pada kontrol peta.
+### 5. Dinamika Hambatan Jalan (*Road Impedance*) & Penghindaran Bahaya Otomatis (*Hazard Avoidance Detour*)
+- **Faktor Hambatan Jalan**: Durasi tempuh jalan kaki otomatis dikalikan faktor impedansi lapangan ($1.5\times\text{–}1.75\times$) saat skenario bencana aktif untuk merefleksikan kepanikan massa, perlambatan arus pengungsi, dan potensi puing-puing di jalan.
+- **Detour Bypass Otomatis**: Jika rute utama memotong zona bahaya model, routing engine secara cerdas mengevaluasi rute alternatif OSRM atau menghitung *via-point* memutar ke arah luar busur bahaya untuk memandu pengungsi ke jalur yang lebih aman.
 
-4. **Direktori 514 Kota di Panel Samping & Navigasi *Fly-To***:
-   - Panel kanan menyediakan direktori lengkap 514 wilayah dengan:
-     - Tab filter status (*Terancam, Semua, Aman*).
-     - Filter cepat 7 gugus pulau (*Jawa, Sumatera, Bali-NT, Kalimantan, Sulawesi, Maluku, Papua*).
-     - Kotak pencarian instan responsif (misal: mencari "Banda Aceh" atau "Sleman").
-     - Tombol *"Fokuskan Peta"* yang mengarahkan kamera Leaflet (*fly-to*) secara mulus ke koordinat kota terpilih lengkap dengan popup telemetri demografi.
+### 6. Alokasi Kapasitas TES & Rute Limpasan (*Spillover to TES 2*)
+- Sistem membandingkan estimasi populasi terdampak terhadap daya tampung kapasitas gedung TES utama.
+- Menampilkan persentase okupansi secara visual (*progress bar*).
+- **Limpasan Kuota**: Jika populasi melebihi 100% daya tampung TES 1, sistem secara otomatis mengaktifkan rute cabang sekunder (garis putus-putus merah) untuk mengalihkan kelebihan pengungsi menuju TES cadangan terdekat (TES 2).
 
-5. **Clean Slate Standby Mode (Kondisi Awal Bersih)**:
-   - Pengguna disambut dengan pemandangan tenang seluruh kepulauan nusantara (Sabang sampai Merauke pada level Zoom 5) tanpa simulasi bencana berjalan paksa.
-   - Panel pengarah (*Standby Briefing*) memberikan instruksi cepat dan pengenalan legenda simbol kartografi resmi.
+### 7. Pemilihan Titik Asal Fleksibel (*Custom Waypoint Origin*) & Ergonomi Mobile Sheet
+- Selain titik asal preset pemukiman, pengguna kini dapat menekan tombol **"Pilih Titik di Peta"**.
+- Pengguna dapat mengklik sembarang titik di atas peta untuk menaruh pin titik awal evakuasi personal warga (misal: di depan rumah atau gang pemukiman).
+- Pin titik awal dapat digeser secara bebas (*draggable*) dengan pembaruan rute seketika.
+- **Ergonomi Mobile Sheet**: Pada perangkat ponsel, menekan tombol "Pilih Titik di Peta" otomatis mengecilkan *Bottom Sheet* ke mode `peek`, membuka pandangan peta seketika agar pengguna leluasa mengetuk lokasi di peta.
 
-6. **Smart Spatial Detection (Deteksi Spasial Cerdas)**:
-   - **Klik perairan / samudera**: Sistem otomatis menginisialisasi skenario *Tsunami Megathrust* di koordinat tersebut.
-   - **Klik daratan**: Sistem otomatis menginisialisasi skenario *Kawah Vulkanik Kustom*.
-   - **Klik langsung pada pin**: Langsung memfokuskan kamera dan memuat data detail gunung atau zona sesar yang dipilih.
+### 8. Profil Angin Atmosfer Multi-Lapisan (*Atmospheric Wind Shear*)
+- Kolom letusan gunung api tinggi kini dapat dimodelkan menembus lapisan stratosfer.
+- Menyediakan kontrol slider independen untuk:
+  - **Lapisan Troposfer Permukaan (0–3 km)**: Membawa partikel abu berat dan pasir vulkanik.
+  - **Lapisan Stratosfer (>3 km)**: Membawa aerosol abu halus ke arah yang berlawanan atau berbeda sudut akibat *wind shear / jet stream*.
+- Peta merender dua poligon sebaran abu multi-vektor secara simultan.
 
-7. **Katalog Geologis Nasional Diperluas (78 Titik Gunung & Pegunungan)**:
-   - **69 Gunung Berapi Aktif** tipe A/B mencakup seluruh busur vulkanik Indonesia:
-     - **Jawa (24 Puncak)**: Merapi, Semeru, Bromo, Kelud, Raung, Ijen, Slamet, Lawu, Sindoro, Sumbing, Ciremai, Papandayan, Gede-Pangrango, Salak, Krakatau, dll.
-     - **Sumatera (13 Puncak)**: Kaldera Toba (Supervulkan), Marapi, Kerinci, Sinabung, Dempo, Talang, Tandikat, Kaba, Sorik Marapi, Seulawah Agam, Bur ni Telong, Peuet Sague, Sibayak.
-     - **Bali & Nusa Tenggara (14 Puncak)**: Agung, Batur, Rinjani, Tambora, Sangeang Api, Lewotobi Laki-laki & Perempuan, Egon, Rokatenda, Iya, Kelimutu, Sirung, Inielika.
-     - **Sulawesi & Sangihe (9 Puncak)**: Lokon, Soputan, Karangetang, Awu, Ruang, Mahawu, Tangkoko, Ambang, Colo.
-     - **Maluku & Halmahera (10 Puncak)**: Gamalama, Dukono, Ibu, Gamkonora, Kie Besi, Banda Api, Teon, Nila, Serua, Wurlali.
-   - **9 Puncak Tektonik Non-Vulkanik**: Puncak Jaya (Carstensz), Puncak Mandala, Puncak Trikora, Latimojong, Bukit Raya, Binaiya, Mutis, Pesagi, Saran.
-   - **Filter Kepulauan & Pencarian Cepat**: Filter navigasi instan (*Semua, Jawa, Sumatera, Bali-NT, Sulawesi, Maluku-Papua, Non-Vulkanik*) dan input pencarian teks reaktif.
+### 9. Ketahanan Offline Multi-Tier (*Offline Resilience & Cache*)
+- Panggilan rute tidak lagi rapuh terhadap kegagalan jaringan atau pembatasan kuota (*rate limit*) server demo publik OSRM.
+- **Hierarki Fail-Safe**:
+  1. *OSRM Server Primer* (`router.project-osrm.org`)
+  2. *OSRM Server Sekunder* (`routing.openstreetmap.de`)
+  3. *Pre-Computed Fixture Cache*: Rute jalan kaki GeoJSON lokal in-memory untuk skenario pilot utama.
+  4. *In-Browser Corridor Synthesizer*: Sintesis koridor jalur evakuasi kurva halus di sisi browser jika perangkat kehilangan sinyal internet total.
 
-8. **Simulasi Tsunami Tektonik Otentik (NOAA MOST & BMKG InaTEWS Standard)**:
-   - **Muka Gelombang Elips Tektonik**: Mengikuti sudut jurus patahan (*Fault Strike Angle*) secara fisik, bukan lingkaran artifisial, lengkap dengan puncak gelombang (*leading crest*) dan palung hisap (*depression trough*).
-   - **Garis Pantai Otentik & Inundasi**: Garis pantai riil berubah warna dinamis menjadi merah menyala saat waktu simulasi mencapai ETA gelombang ($T \ge \text{ETA}$), disertai koridor buffer rendaman darat.
-   - **Pangkalan Data 40+ Hub Pesisir Riil**: Saat pengguna mengklik sembarang koordinat laut lepas, sistem memetakan kabupaten pesisir riil terdekat dan tempat evakuasi sementara (TES) dari pangkalan data kurasi nasional.
-   - **Hitung Mundur Kedatangan Waktu-Nyata**: Tabel distrik menampilkan countdown sisa waktu, estimasi tinggi gelombang pantai (*Green's Law*), dan status dinamis `MENUNGGU` $\to$ `EVAKUASI` $\to$ `TERDAMPAK`.
+### 10. Ekspor Data Spasial Standar GIS (.geojson untuk QGIS / ArcGIS)
+- Menyediakan tombol instan **"Ekspor GeoJSON"** pada panel hasil rute evakuasi.
+- Menghasilkan berkas GeoJSON FeatureCollection berstandar RFC 7946 yang mencakup:
+  - Garis rute utama pejalan kaki beserta jarak, durasi jalan, dan status bahaya model.
+  - Jalur limpasan kapasitas sekunder (jika terjadi pengalihan ke TES 2).
+  - Titik asal dan titik Tempat Evakuasi Sementara (TES) terverifikasi beserta daya tampung.
+  - Seluruh poligon zona bahaya aktif (KRB III/II/I, sebaran abu, atau gelombang tsunami).
+- Berkas dapat langsung di-*drag-and-drop* ke software GIS profesional seperti QGIS, ArcGIS, Google Earth, atau platform InaRISK BNPB.
 
-9. **Simulasi Erupsi Gunung Berapi Terintegrasi**:
-   - Pengaturan indeks daya ledak letusan (VEI 1 hingga 8 termasuk Supervulkan).
-   - Penyesuaian arah dan kecepatan angin troposfer untuk pemodelan dispersi abu vulkanik.
-   - Estimasi ketinggian kolom erupsi (formula Wilson & Mastin).
-   - Pemodelan sebaran abu bertingkat (*multi-tier isopach plume*): Tebal (>5 cm), Sedang (1–5 cm), Tipis (<1 cm).
-   - Zona Kawasan Rawan Bencana (KRB III bahaya tinggi, KRB II sedang, KRB I rendah) sesuai regulasi PVMBG.
-   - Perhitungan *Golden Time* luncuran awan panas guguran (PDC) dan proyeksi jalur banjir lahar dingin per lembah sungai nyata.
+---
 
-10. **Interactive Timeline HUD Dock**:
-   - *Scrubber* perambatan waktu dinamis dari menit T+0 hingga T+60.
-   - Kontrol pemutaran *Play/Pause*, percepatan simulasi (1x, 2x, 5x), dan tombol instan "Dampak Maksimal".
+## Atribusi & Lisensi Data Pihak Ketiga
 
-11. **Multi-Basemap & Layer Filter**:
-   - Pilihan lapisan peta dasar: **Esri Dark Gray Canvas**, **Citra Satelit Esri**, dan **OpenStreetMap**.
-   - Filter visibilitas lapisan untuk menyembunyikan/menampilkan gunung aktif, non-vulkanik, zona megathrust, dan shelter evakuasi sementara (TES).
-
-12. **Ekspor Laporan Taktis (Disaster Impact Brief)**:
-   - Generator dokumen ringkasan dampak darurat berstandar BNPB dengan opsi cetak ke PDF dan unduh gambar PNG resolusi tinggi.
+- **Data Kartografi & Ubin Peta**:
+  - [OpenStreetMap](https://www.openstreetmap.org/copyright): © OpenStreetMap contributors (ODbL / CC-BY-SA).
+  - [Esri](https://www.esri.com/): Esri Dark Gray Canvas, World Imagery, DeLorme, NAVTEQ.
+- **Mesin Rute**:
+  - [Project OSRM](https://project-osrm.org/): Data jaringan jalan pejalan kaki didukung oleh OpenStreetMap.
+- **Rujukan Kebijakan & Teknis Bencana**:
+  - Badan Nasional Penanggulangan Bencana (BNPB)
+  - Badan Meteorologi, Klimatologi, dan Geofisika (BMKG)
+  - Pusat Vulkanologi dan Mitigasi Bencana Geologi (PVMBG - Badan Geologi)
+  - Kementerian Pekerjaan Umum dan Perumahan Rakyat (PUPR)

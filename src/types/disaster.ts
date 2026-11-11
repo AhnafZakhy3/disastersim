@@ -125,9 +125,12 @@ export interface VolcanoScenario {
     name?: string;
   };
   vei: number;
-  windDirectionDeg: number; // 0-360 degrees
+  windDirectionDeg: number; // 0-360 degrees (Lapisan Permukaan 0-3 km)
   windSpeedKmh: number;
   customColumnHeightKm?: number;
+  enableWindShear?: boolean;
+  upperWindDirectionDeg?: number; // 0-360 degrees (Lapisan Stratosfer >3 km)
+  upperWindSpeedKmh?: number;
 }
 
 export interface TsunamiScenario {
@@ -162,6 +165,9 @@ export interface VolcanoSimulationResult {
   ashPlumePolygon: [number, number][]; // [lat, lng] array
   ashPlumeLengthKm: number;
   ashIsopachTiers: AshIsopachTier[];
+  upperAshPlumePolygon?: [number, number][]; // [lat, lng] array angin stratosfer
+  upperAshPlumeLengthKm?: number;
+  upperAshIsopachTiers?: AshIsopachTier[];
   etaPyroclasticMinutes: number;
   pyroclasticSpeedKmh: number;
   affectedPopulation: number;
@@ -185,15 +191,38 @@ export interface TsunamiIsochrone {
   waveHeightM: number;
 }
 
+export type VerificationStatus = 'verified' | 'unverified' | 'disputed' | 'illustrative';
+
+export interface EvacuationDestination {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  disasterTypes: Array<'tsunami' | 'volcano'>;
+  destinationType: 'TES_BUILDING' | 'NATURAL_HIGH_GROUND' | 'EVACUATION_CAMP';
+  regionId: string;
+  districtName: string;
+  elevationM?: number;
+  capacity?: number;
+  verificationStatus: VerificationStatus;
+  sourceName: string;
+  sourceUrl: string;
+  verifiedAt: string;
+  notes?: string;
+}
+
 export interface TsunamiSimulationResult {
   initialWaveHeightM: number;
   deepWaterSpeedKmh: number;
   coastWaveHeightM: number;
   etaCoastMinutes: number;
   inundationDistanceM: number;
-  bmkgStatus: 'AWAS' | 'SIAGA' | 'WASPADA' | 'NORMAL';
-  bmkgColor: string;
-  bmkgDescription: string;
+  simulatedWarningLevel: 'AWAS' | 'SIAGA' | 'WASPADA' | 'NORMAL';
+  warningColor: string;
+  warningDescription: string;
+  bmkgStatus?: 'AWAS' | 'SIAGA' | 'WASPADA' | 'NORMAL';
+  bmkgColor?: string;
+  bmkgDescription?: string;
   isochroneRings: TsunamiIsochrone[];
   districtImpacts: CoastalDistrictImpact[];
   impactedCities: ImpactedCity[];

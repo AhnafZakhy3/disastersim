@@ -11,6 +11,7 @@ import {
   TsunamiSimulationResult,
   EvaluatedCity,
 } from '@/types/disaster';
+import { EvacuationRouteResult } from '@/lib/routing/routingTypes';
 import ScenarioControls from './ScenarioControls';
 import ImpactSummary from './ImpactSummary';
 import {
@@ -48,6 +49,15 @@ interface MobileBottomSheetProps {
   onSpeedChange: (speed: number) => void;
   onResetTime: () => void;
   cities?: EvaluatedCity[];
+  evacuationRoute?: EvacuationRouteResult | null;
+  isCalculatingRoute?: boolean;
+  routeError?: string | null;
+  isPickingOrigin?: boolean;
+  customOriginCoord?: { lat: number; lng: number; name?: string } | null;
+  onTogglePickOrigin?: () => void;
+  onResetOrigin?: () => void;
+  onCalculateRoute?: () => void;
+  onClearRoute?: () => void;
   onFlyToCity?: (city: EvaluatedCity) => void;
   onOpenExportModal: () => void;
   onTriggerSimulation: () => void;
@@ -75,6 +85,15 @@ export default function MobileBottomSheet({
   onSpeedChange,
   onResetTime,
   cities = [],
+  evacuationRoute,
+  isCalculatingRoute,
+  routeError,
+  isPickingOrigin,
+  customOriginCoord,
+  onTogglePickOrigin,
+  onResetOrigin,
+  onCalculateRoute,
+  onClearRoute,
   onFlyToCity,
   onOpenExportModal,
   onTriggerSimulation,
@@ -291,6 +310,18 @@ export default function MobileBottomSheet({
                 tsunamiResult={tsunamiResult}
                 currentTimeMinutes={currentTimeMinutes}
                 cities={cities}
+                evacuationRoute={evacuationRoute}
+                isCalculatingRoute={isCalculatingRoute}
+                routeError={routeError}
+                isPickingOrigin={isPickingOrigin}
+                customOriginCoord={customOriginCoord}
+                onTogglePickOrigin={() => {
+                  onTogglePickOrigin?.();
+                  setHeightState('peek');
+                }}
+                onResetOrigin={onResetOrigin}
+                onCalculateRoute={onCalculateRoute}
+                onClearRoute={onClearRoute}
                 onFlyToCity={(city) => {
                   if (heightState === 'full') setHeightState('half');
                   onFlyToCity?.(city);
