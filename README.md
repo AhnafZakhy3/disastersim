@@ -74,7 +74,7 @@ Sesuai persetujuan pengguna untuk optimasi perangkat seluler dan berspesifikasi 
 
 ---
 
-## 9 Peningkatan Fitur Utama (Revisi Lanjutan)
+## 10 Peningkatan Fitur Utama (Revisi Lanjutan)
 
 ### 1. Deteksi Paparan Bahaya Tempat Evakuasi Sementara (Shelter Hazard Exposure Check)
 - **Masalah Terselesaikan**: Sebelumnya, TES di luar radius KRB I tetap dianggap hijau/aman meskipun berada tepat di jalur aliran hujan abu lebat atau awan panas.
@@ -137,6 +137,15 @@ Sesuai persetujuan pengguna untuk optimasi perangkat seluler dan berspesifikasi 
   - Titik asal dan titik Tempat Evakuasi Sementara (TES) terverifikasi beserta daya tampung.
   - Seluruh poligon zona bahaya aktif (KRB III/II/I, sebaran abu, atau gelombang tsunami).
 - Berkas dapat langsung di-*drag-and-drop* ke software GIS profesional seperti QGIS, ArcGIS, Google Earth, atau platform InaRISK BNPB.
+
+---
+
+## Dokumentasi Teknis & Panduan Arsitektur
+
+Dokumentasi teknis mendalam mengenai arsitektur, landasan ilmiah, dan asal-usul data tersedia di direktori `docs/`:
+- **[Panduan Arsitektur & Bedah Kode (`docs/docs.md`)](./docs/docs.md)**: Rujukan lengkap alur data reaktif, komponen Leaflet, peta navigasi fitur vs berkas kode, dan panduan kontribusi.
+- **[Dokumentasi Asal-Usul Data & Status Verifikasi (`docs/data-sources.md`)](./docs/data-sources.md)**: Inventarisasi 232 Tempat Evakuasi Sementara (TES) terverifikasi, katalog 79 gunung api, 46 hub pesisir, dan kebijakan kejujuran data.
+- **[Dokumentasi Ilmiah & Batasan Model (`docs/model-limitations.md`)](./docs/model-limitations.md)**: Landasan matematis gelombang Papazachos & Green's Law, formula KRB PVMBG, dispersi abu vulkanik, dan batasan simulasi.
 
 ---
 

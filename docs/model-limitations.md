@@ -24,11 +24,13 @@ $$v_{\text{km/j}} = v \times 3.6$$
 *Contoh:* Untuk kedalaman rata-rata Palung Jawa sebesar $4.000\text{ meter}$, kecepatan gelombang mencapai $\approx 713\text{ km/jam}$.
 
 ### 1.2 Estimasi Tinggi Gelombang Awal (Source Wave Height)
-Tinggi gelombang di area sumber (*epicentral wave height*) diestimasi berdasarkan Magnitudo Momen ($M_w$) dan kedalaman hiposenter ($h_{\text{km}}$):
+Tinggi gelombang di area sumber (*epicentral wave height*) diestimasi berdasarkan formula empiris Papazachos et al. yang mempertimbangkan Magnitudo Momen ($M_w$) dan kedalaman hiposenter ($h_{\text{km}}$):
 
-$$H_0 = 10^{(0.5 \cdot M_w - 3.3)} \times \left(1 - \frac{h_{\text{km}}}{100}\right)$$
+$$\log_{10}(H_0) = 0.55 \cdot M_w - 0.005 \cdot h_{\text{km}} - 3.85$$
 
-Jika $h \ge 100\text{ km}$, deformasi dasar laut dianggap tidak signifikan memicu tsunami tektonik vertikal ($H_0 \approx 0$).
+$$H_0 = \max\left(0.2, 10^{\log_{10}(H_0)}\right)\text{ meter}$$
+
+Gempa bumi dengan hiposenter dangkal ($h < 30\text{ km}$) memiliki efisiensi dislokasi vertikal dasar laut tertinggi, sedangkan gempa dengan hiposenter dalam ($h \ge 70\text{–}100\text{ km}$) menghasilkan deformasi dasar laut yang jauh teredam.
 
 ### 1.3 Amplifikasi Pantai (Hukum Green / Green's Law)
 Saat gelombang tsunami mendekati perairan dangkal pantai ($d_c \approx 5\text{–}10\text{ m}$), kecepatannya melambat sementara energi gelombang terkonsentrasi, menyebabkan amplifikasi ketinggian gelombang pantai ($H_c$):
@@ -65,24 +67,29 @@ Model mengadopsi klasifikasi Newhall & Self (1982) dengan rentang VEI 1 hingga 8
   $$H \approx 2.0 \cdot V^{0.241}\text{ km}$$ (disesuaikan dengan batas atas stratosfer per level VEI).
 
 ### 2.2 Kawasan Rawan Bencana (KRB)
-Radius KRB mengacu pada pedoman standar Pusat Vulkanologi dan Mitigasi Bencana Geologi (PVMBG):
-- **KRB III (Zona Bahaya Tinggi)**: Kawasan yang terancam langsung oleh awan panas guguran, lontaran batu pijar, aliran lava, dan gas beracun.
-  $$R_{\text{KRB3}} = \text{baseRadius} \times \left(1 + \frac{\text{VEI} - \text{defaultVEI}}{3}\right)$$
+Radius KRB mengacu pada prinsip zonasi bahaya Pusat Vulkanologi dan Mitigasi Bencana Geologi (PVMBG) yang diskalakan terhadap indeks magnitudo letusan (tabel pengali $M_{\text{radius}}$ dari $0.45\times$ pada VEI 1 hingga $7.5\times$ pada VEI 8):
+- **KRB III (Zona Bahaya Mutlak / Sangat Tinggi)**: Kawasan yang terancam langsung oleh awan panas guguran, lontaran batu pijar, aliran lava, dan gas beracun.
+  $$R_{\text{KRB3}} = R_{\text{base3}} \times M_{\text{radius}}(\text{VEI})$$
 - **KRB II (Zona Bahaya Sedang)**: Terancam lontaran batu pijar dan hujan abu lebat.
-- **KRB I (Zona Bahaya Rendah)**: Kawasan yang berpotensi terlanda lahar hujan/lahar dingin bila terjadi presipitasi tinggi.
+  $$R_{\text{KRB2}} = R_{\text{KRB3}} \times 1.7$$
+- **KRB I (Zona Bahaya Rendah / Sekunder)**: Kawasan perluasan banjir lahar dingin di lembah sungai dan sebaran abu vulkanik.
+  $$R_{\text{KRB1}} = R_{\text{KRB3}} \times 2.6$$
 
 ### 2.3 Sebaran Abu Vulkanik (Ash Plume & Isopach Dispersion)
-Sebaran abu vulkanik dimodelkan menggunakan elips dispersi terarah (*directional Gaussian dispersion envelope*):
-- **Panjang Sebaran ($L_{\text{plume}}$)**:
-  $$L_{\text{plume}} = (H \times 2.8) + (v_{\text{angin}} \times 0.6)\text{ km}$$
+Sebaran abu vulkanik dimodelkan menggunakan sektor kerucut dispersi terarah (*directional wedge sector envelope*):
+- **Panjang Sebaran Inti ($L_{\text{plume}}$)**:
+  $$L_{\text{plume}} = (H_{\text{kolom}} \times 1.3) + (v_{\text{angin}} \times 0.9)\text{ km}$$
 - **Arah Sebaran**: Mengikuti azimut arah angin ($0\text{–}360^\circ$).
-- **Tingkat Ketebalan Isopach**:
-  - Abu Lebat ($>5\text{ cm}$): Radius $0.35 \times L_{\text{plume}}$
-  - Abu Sedang ($1\text{–}5\text{ cm}$): Radius $0.70 \times L_{\text{plume}}$
-  - Abu Ringan ($<1\text{ cm}$): Radius $1.00 \times L_{\text{plume}}$
+- **Sudut Kerucut Sebaran ($\alpha$)**: Menyesuaikan kecepatan angin (semakin kencang angin, sebaran semakin memanjang dan meruncing):
+  $$\alpha = \max\left(30^\circ, \min\left(65^\circ, 75^\circ - v_{\text{angin}} \times 0.4\right)\right)$$
+- **Tingkat Ketebalan Isopach (Standar PVMBG VONA & USGS)**:
+  - **Abu Lebat ($> 5\text{ cm}$)**: Jangkauan radius $0.55 \times L_{\text{plume}}$ (risiko atap runtuh & kelumpuhan jalan).
+  - **Abu Sedang ($1\text{–}5\text{ cm}$)**: Jangkauan radius $1.00 \times L_{\text{plume}}$ (iritasi pernapasan/ISPA & mesin transportasi).
+  - **Abu Ringan ($< 1\text{ cm}$)**: Jangkauan radius $1.60 \times L_{\text{plume}}$ (sebaran partikel debu halus di udara).
 
 ### 2.4 Batasan Model Vulkanik
-1. **Model Angin Seragam**: Angin dimodelkan sebagai vektor arah dan kecepatan seragam, bukan model profil angin multi-lapisan atmosfer (troposfer/stratosfer) dinamis NOAA GFS/ECMWF.
+1. **Model Angin Atmosfer Multi-Lapisan (Dual-Layer Atmospheric Wind Shear)**:
+   Aplikasi mendukung pemodelan dua vektor arah dan kecepatan angin independen secara simultan (Lapisan Troposfer Permukaan $0–3\text{ km}$ untuk partikel abu berat/pasir vulkanik, dan Lapisan Stratosfer $>3\text{ km}$ untuk aerosol abu halus yang terkena *wind shear*). Namun parameter angin diatur secara manual melalui slider skenario pengguna dan belum mengonsumsi kisi meteorologi real-time (NOAA GFS / ECMWF).
 2. **Karakteristik Magma Spesifik**: Skenario kustom menggunakan model fisik umum. Gunung api dengan sifat magma sangat kental (dasitik/riolisis) versus encer (basaltik) memerlukan studi petrologi spesifik di luar jangkauan prototipe ini.
 
 ---
