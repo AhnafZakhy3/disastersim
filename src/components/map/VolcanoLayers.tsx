@@ -9,6 +9,7 @@ import {
 } from '@/types/disaster';
 import { INDONESIA_VOLCANOES } from '@/data/volcanoes';
 import { escapeHtml } from '@/lib/sanitize';
+import { checkShelterHazardExposure } from '@/lib/simulation/volcanoModel';
 
 interface VolcanoLayersProps {
   map: L.Map | null;
@@ -332,6 +333,34 @@ export default function VolcanoLayers({
       }
 
       // ==============================================================
+      // 4.1 STRATOSPHERIC WIND SHEAR ASH PLUME (SEBARAN LAPISAN ATAS)
+      // ==============================================================
+      if (
+        scenario.enableWindShear &&
+        result.upperAshPlumePolygon &&
+        result.upperAshPlumePolygon.length > 0 &&
+        currentTimeMinutes > 1
+      ) {
+        const upperAshPoly = LModule.polygon(result.upperAshPlumePolygon, {
+          color: '#A855F7',
+          weight: 1.5,
+          opacity: 0.85,
+          fillColor: '#9333EA',
+          fillOpacity: 0.22,
+          dashArray: '4, 4',
+        });
+        upperAshPoly.bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; line-height: 1.4;">
+            <strong style="color: #C084FC;">Sebaran Abu Stratosfer (Wind Shear Atmosfer > 3 km)</strong><br/>
+            <span style="color: #E9D5FF;">Aerosol Abu Halus Lapisan Tinggi</span><br/>
+            <span style="color: #94A3B8;">Panjang Sebaran: ${result.upperAshPlumeLengthKm || 0} km</span><br/>
+            <span style="color: #94A3B8;">Arah Angin Stratosfer: ${scenario.upperWindDirectionDeg ?? 90}° (${scenario.upperWindSpeedKmh ?? 65} km/jam)</span>
+          </div>
+        `);
+        layerGroup.addLayer(upperAshPoly);
+      }
+
+      // ==============================================================
       // 5. SELECTED VOLCANO SUMMIT BEACON (GLOW RADAR)
       // ==============================================================
       const summitIcon = LModule.divIcon({
@@ -353,24 +382,50 @@ export default function VolcanoLayers({
       const volcanoMarker = LModule.marker([centerLat, centerLng], { icon: summitIcon });
       volcanoMarker.bindPopup(`
         <div style="font-family: inherit; font-size: 13px; line-height: 1.4;">
-          <strong style="color: #F8FAFC; font-size: 14px;">${escapeHtml(selectedVolcano.name)}</strong><br/>
+          <strong style="color: #F8FAFC; font-size: 14px;">${escapeHtml(scenario.isCustom ? (scenario.customLocation?.name || 'Kawah Vulkanik Kustom') : selectedVolcano.name)}</strong><br/>
           <span style="color: #EF4444; font-weight: bold;">Status: ${escapeHtml(result.alertLevel)}</span><br/>
-          <span style="color: #94A3B8;">Elevasi: ${escapeHtml(selectedVolcano.elevationM)} mdpl</span><br/>
+          <span style="color: #94A3B8;">Elevasi: ${escapeHtml(scenario.isCustom ? 1200 : selectedVolcano.elevationM)} mdpl</span><br/>
           <span style="color: #94A3B8;">Tinggi Kolom Erupsi: ~${escapeHtml(result.columnHeightKm)} km</span>
         </div>
       `);
       layerGroup.addLayer(volcanoMarker);
 
       // ==============================================================
-      // 6. EVACUATION SHELTERS (TES) WITH VECTOR BADGES
+      // 6. EVACUATION SHELTERS (TES) WITH PRECISE HAZARD EXPOSURE CHECK
       // ==============================================================
-      if (selectedVolcano.shelters) {
+      if (!scenario.isCustom && selectedVolcano.shelters) {
         selectedVolcano.shelters.forEach((shelter) => {
-          const isSafe = shelter.distanceKm ? shelter.distanceKm > result.krb1RadiusKm : true;
+          const exposure = checkShelterHazardExposure(
+            shelter.lat,
+            shelter.lng,
+            result,
+            centerLat,
+            centerLng
+          );
+
+          const isSafe = exposure.isSafe;
+          const isCritical = exposure.severity === 'critical';
+          const isHigh = exposure.severity === 'high';
+          const isMedium = exposure.severity === 'medium';
+
+          const shelterBg = isSafe
+            ? '#064E3B'
+            : isCritical || isHigh
+            ? '#7F1D1D'
+            : '#7C2D12';
+          const shelterBorder = isSafe
+            ? '#10B981'
+            : isCritical || isHigh
+            ? '#EF4444'
+            : '#F97316';
+          const shelterShadow = isSafe
+            ? 'rgba(16, 185, 129, 0.4)'
+            : 'rgba(239, 68, 68, 0.5)';
+
           const shelterIcon = LModule.divIcon({
             className: 'custom-shelter-marker',
             html: `
-              <div style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; background: ${isSafe ? '#064E3B' : '#7F1D1D'}; border: 1.5px solid ${isSafe ? '#10B981' : '#EF4444'}; box-shadow: 0 0 8px ${isSafe ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'};">
+              <div style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; background: ${shelterBg}; border: 1.5px solid ${shelterBorder}; box-shadow: 0 0 8px ${shelterShadow};">
                 <svg style="width: 13px; height: 13px;" viewBox="0 0 24 24" fill="none">
                   <path d="M12 2L3 6V12C3 17.5 6.8 21.7 12 23C17.2 21.7 21 17.5 21 12V6L12 2Z" fill="${isSafe ? '#047857' : '#991B1B'}" stroke="${isSafe ? '#A7F3D0' : '#FECDD3'}" stroke-width="1.8"/>
                 </svg>
@@ -382,14 +437,21 @@ export default function VolcanoLayers({
 
           const shelterMarker = LModule.marker([shelter.lat, shelter.lng], { icon: shelterIcon });
           shelterMarker.bindPopup(`
-            <div style="font-family: inherit; font-size: 12px; line-height: 1.4;">
-              <strong style="color: ${isSafe ? '#10B981' : '#EF4444'};">${escapeHtml(shelter.name)}</strong><br/>
-              <span>Wilayah: ${escapeHtml(shelter.district ?? '-')}</span><br/>
-              <span>Kapasitas: ${escapeHtml(shelter.capacity?.toLocaleString('id-ID') ?? '-')} Jiwa</span><br/>
-              <span>Jarak ke Puncak: ${escapeHtml(shelter.distanceKm ?? '-')} km</span><br/>
-              <span style="color: ${isSafe ? '#34D399' : '#F87171'}; font-weight: bold;">
-                ${isSafe ? 'LOKASI AMAN (DI LUAR KRB I)' : 'PERINGATAN: TERLALU DEKAT DENGAN ZONA BAHAYA'}
-              </span>
+            <div style="font-family: inherit; font-size: 12px; line-height: 1.45; min-width: 220px;">
+              <strong style="color: ${shelterBorder}; font-size: 13px;">${escapeHtml(shelter.name)}</strong><br/>
+              <span style="color: #94A3B8;">Wilayah: ${escapeHtml(shelter.district ?? '-')}</span><br/>
+              <span style="color: #CBD5E1;">Kapasitas: <strong>${escapeHtml(shelter.capacity?.toLocaleString('id-ID') ?? '-')} Jiwa</strong></span><br/>
+              <span style="color: #CBD5E1;">Jarak ke Kawah: <strong>${escapeHtml(shelter.distanceKm ?? '-')} km</strong></span><br/>
+              
+              <div style="margin-top: 6px; padding: 4px 6px; border-radius: 4px; background: ${shelterBorder}20; border: 1px solid ${shelterBorder}60; font-size: 10px; font-weight: bold; color: ${shelterBorder};">
+                ${isSafe ? '✓ LOKASI AMAN (BEBAS KRB & HUJAN ABU)' : '⚠️ PERINGATAN: TERPAPAR BAHAYA VULKANIK'}
+              </div>
+
+              ${exposure.warningMessage ? `
+                <div style="margin-top: 4px; font-size: 10px; color: #FCA5A5; line-height: 1.3;">
+                  ${escapeHtml(exposure.warningMessage)}
+                </div>
+              ` : ''}
             </div>
           `);
           layerGroup.addLayer(shelterMarker);

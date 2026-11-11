@@ -89,7 +89,7 @@ export default function StandbyBriefing({
             <span className="text-[10px] font-mono text-sky-400">Mw 6.5 - 9.2</span>
           </div>
           <p className="text-[11px] text-slate-400 pl-8">
-            Pilih zona subduksi aktif untuk menghitung perambatan gelombang laut dalam, amplifikasi pantai, dan status BMKG.
+            Pilih zona subduksi aktif untuk menghitung perambatan gelombang laut dalam, amplifikasi pantai, dan estimasi tingkat bahaya simulasi.
           </p>
         </button>
       </div>

@@ -20,6 +20,7 @@ import {
   ZoomOut,
   Layers,
   Crosshair,
+  MapPin,
   Map as MapIcon,
   Check,
 } from 'lucide-react';
@@ -29,7 +30,9 @@ import {
   SeismicEpicenterIcon,
 } from '@/components/ui/TacticalSymbols';
 import CityMarkersLayer from '@/components/map/CityMarkersLayer';
+import EvacuationRouteLayer from '@/components/map/EvacuationRouteLayer';
 import { EvaluatedCity } from '@/types/disaster';
+import { EvacuationRouteResult } from '@/lib/routing/routingTypes';
 
 type BasemapStyle = 'dark' | 'satellite' | 'streets';
 
@@ -44,6 +47,10 @@ interface DisasterMapProps {
   currentTimeMinutes: number;
   cities?: EvaluatedCity[];
   flyToLocation?: { lat: number; lng: number } | null;
+  evacuationRoute?: EvacuationRouteResult | null;
+  isPickingOrigin?: boolean;
+  customOriginCoord?: { lat: number; lng: number; name?: string } | null;
+  onPickOrigin?: (lat: number, lng: number) => void;
   onMapClick?: (lat: number, lng: number) => void;
   onSelectVolcano?: (volcano: VolcanoPreset) => void;
   onSelectFault?: (fault: TsunamiFaultPreset) => void;
@@ -61,6 +68,10 @@ export default function DisasterMap({
   currentTimeMinutes,
   cities,
   flyToLocation,
+  evacuationRoute,
+  isPickingOrigin = false,
+  customOriginCoord = null,
+  onPickOrigin,
   onMapClick,
   onSelectVolcano,
   onSelectFault,
@@ -70,6 +81,23 @@ export default function DisasterMap({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const baseTileLayerRef = useRef<L.TileLayer | null>(null);
   const refTileLayerRef = useRef<L.TileLayer | null>(null);
+  const customOriginMarkerRef = useRef<L.Marker | null>(null);
+
+  const isPickingOriginRef = useRef(isPickingOrigin);
+  const onPickOriginRef = useRef(onPickOrigin);
+  const onMapClickRef = useRef(onMapClick);
+
+  useEffect(() => {
+    isPickingOriginRef.current = isPickingOrigin;
+  }, [isPickingOrigin]);
+
+  useEffect(() => {
+    onPickOriginRef.current = onPickOrigin;
+  }, [onPickOrigin]);
+
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
 
   const [mapReady, setMapReady] = useState(false);
   const [showLayerFilter, setShowLayerFilter] = useState(false);
@@ -81,6 +109,13 @@ export default function DisasterMap({
   const [showNonVolcanoes, setShowNonVolcanoes] = useState(true);
   const [showTsunamiFaults, setShowTsunamiFaults] = useState(true);
   const [showCitiesLayer, setShowCitiesLayer] = useState(true);
+
+  // Auto-hide 514 cities layer when an evacuation route is calculated to keep mobile performant & clear
+  useEffect(() => {
+    if (evacuationRoute && evacuationRoute.success) {
+      setShowCitiesLayer(false);
+    }
+  }, [evacuationRoute]);
 
   // Smooth flyTo triggered externally
   useEffect(() => {
@@ -165,16 +200,24 @@ export default function DisasterMap({
         minZoom: 4,
         maxZoom: 18,
         zoomControl: false,
-        attributionControl: false,
+        attributionControl: true,
       });
 
       // Apply initial basemap (Dark Gray Canvas)
       applyBasemap('dark', map, LModule);
 
-      // Handle custom coordinate click
+      // Handle map clicks (Custom origin picker has precedence over scenario epicenter click)
       map.on('click', (e: L.LeafletMouseEvent) => {
-        if (onMapClick) {
-          onMapClick(parseFloat(e.latlng.lat.toFixed(4)), parseFloat(e.latlng.lng.toFixed(4)));
+        const lat = parseFloat(e.latlng.lat.toFixed(4));
+        const lng = parseFloat(e.latlng.lng.toFixed(4));
+
+        if (isPickingOriginRef.current && onPickOriginRef.current) {
+          onPickOriginRef.current(lat, lng);
+          return;
+        }
+
+        if (onMapClickRef.current) {
+          onMapClickRef.current(lat, lng);
         }
       });
 
@@ -200,6 +243,70 @@ export default function DisasterMap({
       }
     });
   }, [basemapStyle]);
+
+  // Update map container cursor when in Origin Picking mode
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    mapContainerRef.current.style.cursor = isPickingOrigin ? 'crosshair' : '';
+  }, [isPickingOrigin]);
+
+  // Render draggable pin for personal custom origin coordinate
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    let isCancelled = false;
+    import('leaflet').then((LModule) => {
+      if (isCancelled || !map) return;
+
+      if (!customOriginCoord) {
+        if (customOriginMarkerRef.current) {
+          map.removeLayer(customOriginMarkerRef.current);
+          customOriginMarkerRef.current = null;
+        }
+        return;
+      }
+
+      if (customOriginMarkerRef.current) {
+        customOriginMarkerRef.current.setLatLng([customOriginCoord.lat, customOriginCoord.lng]);
+      } else {
+        const pinIcon = LModule.divIcon({
+          className: 'custom-origin-draggable-pin',
+          html: `
+            <div style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #0284C7; border: 2.5px solid #FFFFFF; box-shadow: 0 0 14px rgba(2, 132, 199, 0.9); cursor: grab; animation: bounce 1s infinite alternate;">
+              <span style="color: #FFFFFF; font-size: 13px; font-weight: 900; font-family: monospace;">A</span>
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+
+        const marker = LModule.marker([customOriginCoord.lat, customOriginCoord.lng], {
+          icon: pinIcon,
+          draggable: true,
+        }).addTo(map);
+
+        marker.bindTooltip(
+          '<div style="font-size: 11px; font-weight: bold; color: #38BDF8;">Titik Awal Warga (Bisa Digeser)</div>',
+          { direction: 'top', offset: [0, -16] }
+        );
+
+        marker.on('dragend', (e: any) => {
+          const latLng = e.target.getLatLng();
+          onPickOriginRef.current?.(
+            parseFloat(latLng.lat.toFixed(4)),
+            parseFloat(latLng.lng.toFixed(4))
+          );
+        });
+
+        customOriginMarkerRef.current = marker;
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [customOriginCoord]);
 
   // Robust ResizeObserver to guarantee Leaflet recalculates canvas size immediately
   useEffect(() => {
@@ -518,7 +625,7 @@ export default function DisasterMap({
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-1 bg-rose-500"></div>
-                      <span className="text-rose-400">Garis Pantai BMKG AWAS</span>
+                      <span className="text-rose-400">Garis Pantai Bahaya AWAS</span>
                     </div>
                   </>
                 ) : (
@@ -533,12 +640,17 @@ export default function DisasterMap({
       </div>
 
       {/* 3. CUSTOM CLICK MODE BANNER */}
-      {isCustomModeActive && (
+      {isPickingOrigin ? (
+        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-20 bg-sky-950/95 border border-sky-400 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 text-xs font-bold animate-pulse backdrop-blur-md">
+          <MapPin className="w-4 h-4 text-sky-300" />
+          <span>Mode Titik Awal: Klik sembarang lokasi di peta untuk meletakkan titik awal evakuasi warga!</span>
+        </div>
+      ) : isCustomModeActive ? (
         <div className="absolute top-28 left-1/2 -translate-x-1/2 z-20 bg-rose-950/90 border border-rose-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 text-xs font-bold animate-pulse backdrop-blur-md">
           <Crosshair className="w-4 h-4 text-rose-300" />
           <span>Mode Kustom: Klik sembarang titik di peta Indonesia untuk memindahkan episentrum/kawah!</span>
         </div>
-      )}
+      ) : null}
 
       {/* 4. VOLCANO & TSUNAMI VECTOR OVERLAYS */}
       {/* In Standby mode, render volcano pins & fault pins with 0 impact radiuses */}
@@ -593,6 +705,14 @@ export default function DisasterMap({
           cities={cities}
           showCities={showCitiesLayer}
           onSelectCity={onSelectCity}
+        />
+      )}
+
+      {/* Evacuation Route Pedestrian Network Layer */}
+      {mapReady && evacuationRoute && (
+        <EvacuationRouteLayer
+          map={mapInstanceRef.current}
+          route={evacuationRoute}
         />
       )}
     </div>

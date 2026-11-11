@@ -147,7 +147,7 @@ export function run100ScenariosAudit(): BatchAuditReport {
       scenarioId: `TC-${String(testIndex).padStart(3, '0')}`,
       name: `Tsunami ${fault.name}`,
       category: 'tsunami',
-      parametersDesc: `Mw ${mw} • Hiposenter ${depth} km • T+${timeM}m • Status ${res?.bmkgStatus}`,
+      parametersDesc: `Mw ${mw} • Hiposenter ${depth} km • T+${timeM}m • Status ${res?.simulatedWarningLevel || res?.bmkgStatus}`,
       passed,
       executionTimeMs,
       citiesEvaluatedCount: res?.allEvaluatedCities.length ?? 0,
@@ -206,7 +206,7 @@ export function run100ScenariosAudit(): BatchAuditReport {
         const res = simulateTsunamiImpact(scenario, 25);
         evaluatedCount = res.allEvaluatedCities.length;
         threatened = res.allEvaluatedCities.filter(c => c.status !== 'safe').length;
-        summary = `Tsunami: Kecepatan ${res.deepWaterSpeedKmh} km/j, Status ${res.bmkgStatus}`;
+        summary = `Tsunami: Kecepatan ${res.deepWaterSpeedKmh} km/j, Status ${res.simulatedWarningLevel || res.bmkgStatus}`;
         if (evaluatedCount !== 514 || isNaN(res.coastWaveHeightM)) {
           passed = false;
           errorMsg = `Invalid tsunami output for ${coord.name}`;

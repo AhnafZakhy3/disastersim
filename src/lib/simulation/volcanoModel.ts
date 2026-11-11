@@ -10,6 +10,7 @@ import {
   calculateHaversineDistanceKm,
   calculateBearingDeg,
   createWedgeSectorPolygon,
+  isPointInPolygon,
 } from '@/lib/geoUtils';
 import { sanitizeNumeric } from '@/lib/sanitize';
 import { INDONESIA_VOLCANOES } from '@/data/volcanoes';
@@ -152,7 +153,7 @@ export function simulateVolcanoEruption(
       })),
       bnpbInstructions: [
         `${selectedVolcano.name} merupakan formasi pegunungan tektonik non-vulkanik.`,
-        `Tidak memiliki kantong magma aktif dan 100% aman dari bahaya letusan awan panas, bom vulkanik, maupun hujan abu.`,
+        `Bukan merupakan sumber erupsi vulkanik berdasarkan klasifikasi dataset geologis.`,
         `Aktivitas pendakian dan permukiman di sekitarnya tidak memerlukan evakuasi vulkanologi.`,
       ],
       alertLevel: 'LEVEL I (NORMAL)',
@@ -172,9 +173,12 @@ export function simulateVolcanoEruption(
   const lat = sanitizeNumeric(rawLat, -12.0, 8.0, -7.5407);
   const lng = sanitizeNumeric(rawLng, 94.0, 142.0, 110.4457);
 
-  const baseKRB3 = sanitizeNumeric(selectedVolcano?.baseKRB3RadiusKm, 0.5, 30.0, 5.0);
+  const baseKRB3 = scenario.isCustom
+    ? 5.0
+    : sanitizeNumeric(selectedVolcano?.baseKRB3RadiusKm, 0.5, 30.0, 5.0);
 
-  const veiClamped = Math.round(sanitizeNumeric(scenario.vei, 1, 8, selectedVolcano?.defaultVEI || 3));
+  const defaultVei = scenario.isCustom ? 3 : (selectedVolcano?.defaultVEI || 3);
+  const veiClamped = Math.round(sanitizeNumeric(scenario.vei, 1, 8, defaultVei));
   const spec = VEI_SPECS[veiClamped] || VEI_SPECS[3];
 
   // Calculated radii
@@ -242,6 +246,51 @@ export function simulateVolcanoEruption(
     },
   ];
 
+  // Upper Stratospheric Wind Shear Plume (if enabled and column height >= 3 km)
+  let upperAshPlumePolygon: [number, number][] | undefined;
+  let upperAshPlumeLengthKm: number | undefined;
+  let upperAshIsopachTiers: AshIsopachTier[] | undefined;
+
+  if (scenario.enableWindShear && columnHeightKm >= 3.0) {
+    const rawUpperWindDeg = sanitizeNumeric(scenario.upperWindDirectionDeg ?? (windDirectionDeg + 120), 0, 360, 90);
+    const upperWindDirectionDeg = ((rawUpperWindDeg % 360) + 360) % 360;
+    const upperWindSpeed = sanitizeNumeric(scenario.upperWindSpeedKmh ?? (windSpeed * 1.4), 10, 250, 60);
+
+    upperAshPlumeLengthKm = parseFloat(
+      (columnHeightKm * 1.5 + upperWindSpeed * 1.1).toFixed(1)
+    );
+    const upperSpreadAngleDeg = Math.max(25, Math.min(55, 65 - upperWindSpeed * 0.3));
+
+    upperAshPlumePolygon = createWedgeSectorPolygon(
+      lat,
+      lng,
+      upperAshPlumeLengthKm,
+      upperWindDirectionDeg,
+      upperSpreadAngleDeg
+    );
+
+    upperAshIsopachTiers = [
+      {
+        id: 'upper-isopach-dense',
+        label: 'Zona Awan Abu Stratosferik Pekat',
+        thicknessDesc: 'Konsentrasi abu vulkanik pekat pada ketinggian stratosfer (> 3 km).',
+        maxDistanceKm: parseFloat((upperAshPlumeLengthKm * 0.55).toFixed(1)),
+        polygon: createWedgeSectorPolygon(lat, lng, upperAshPlumeLengthKm * 0.55, upperWindDirectionDeg, upperSpreadAngleDeg * 0.85),
+        fillColor: '#4C1D95',
+        borderColor: '#8B5CF6',
+      },
+      {
+        id: 'upper-isopach-dispersed',
+        label: 'Zona Sebaran Abu Stratosferik Halus',
+        thicknessDesc: 'Dispersi abu halus troposfer atas / stratosfer terbawa angin ketinggian.',
+        maxDistanceKm: upperAshPlumeLengthKm,
+        polygon: upperAshPlumePolygon,
+        fillColor: '#581C87',
+        borderColor: '#A855F7',
+      },
+    ];
+  }
+
   // ETA pyroclastic density current to boundary of KRB III
   const pyroclasticSpeedKmh = spec.flowSpeedKmh;
   const etaPyroclasticMinutes = parseFloat(
@@ -259,30 +308,43 @@ export function simulateVolcanoEruption(
   const schools = Math.max(3, Math.round(krb3RadiusKm * 3.2));
   const mainRoads = Math.max(1, Math.round(krb3RadiusKm * 0.4));
 
-  // Shelters filter: recommend shelters outside KRB I
+  // Shelters filter: recommend shelters outside KRB I and outside heavy/medium ash plume
   let recommendedShelters: EvacuationShelter[] = [];
-  if (selectedVolcano?.shelters) {
+  if (!scenario.isCustom && selectedVolcano?.shelters) {
     recommendedShelters = selectedVolcano.shelters.filter((s) => {
       const dist = calculateHaversineDistanceKm(lat, lng, s.lat, s.lng);
-      return dist > krb1RadiusKm;
-    });
+      if (dist <= krb1RadiusKm) return false;
 
-    if (recommendedShelters.length === 0) {
-      recommendedShelters = selectedVolcano.shelters;
-    }
+      // Filter out if shelter is inside ash plume
+      if (ashIsopachTiers.length >= 2) {
+        const insideHeavy = isPointInPolygon(s.lat, s.lng, ashIsopachTiers[0].polygon);
+        const insideMedium = isPointInPolygon(s.lat, s.lng, ashIsopachTiers[1].polygon);
+        if (insideHeavy || insideMedium) return false;
+      }
+
+      if (upperAshPlumePolygon && isPointInPolygon(s.lat, s.lng, upperAshPlumePolygon)) {
+        return false;
+      }
+
+      return true;
+    });
   }
 
-  // Lahar valleys
-  const laharValleys = selectedVolcano?.laharValleys ?? [
-    { name: 'Lembah Sungai Radial', compassDirection: 'Sektor Turunan Lereng', description: 'Daerah aliran banjir lahar dingin sekunder saat curah hujan tinggi' },
-  ];
+  // Lahar valleys (only for presets with modeled valleys)
+  const laharValleys = scenario.isCustom
+    ? []
+    : (selectedVolcano?.laharValleys ?? []);
 
-  // Official BNPB / PVMBG safety directives
+  // Prosedur keselamatan dan mitigasi risiko
+  const laharDirective = laharValleys.length > 0
+    ? `Masyarakat di sepanjang bantaran lembah sungai (${laharValleys.map(v => v.name).join(', ')}) dilarang beraktivitas dan wajib mewaspadai ancaman banjir lahar dingin di musim penghujan.`
+    : `Masyarakat di sekitar lembah aliran sungai radial kawah wajib mewaspadai ancaman banjir lahar dingin saat curah hujan tinggi.`;
+
   const bnpbInstructions: string[] = [
     `Kosongkan secara total seluruh permukiman di zona KRB III (radius ${krb3RadiusKm} km) dari kawah aktif.`,
-    `Wajib gunakan masker pelindung partikulat (N95 / respirator) untuk mitigasi hujan abu vulkanik lebat hingga jarak ${basePlumeLengthKm} km ke arah sektor angin.`,
-    `Masyarakat di sepanjang bantaran lembah sungai (${laharValleys.map(v => v.name).join(', ')}) dilarang beraktivitas dan wajib mewaspadai ancaman banjir lahar dingin di musim penghujan.`,
-    `Segera arahkan pengungsi menuju Tempat Evakuasi Sementara (TES) di luar batas KRB I (jarak aman > ${krb1RadiusKm} km).`,
+    `Gunakan masker pelindung partikulat (N95 / respirator) untuk mitigasi hujan abu vulkanik hingga jarak ${basePlumeLengthKm} km ke arah sektor angin.`,
+    laharDirective,
+    `Arahkan evakuasi menuju Tempat Evakuasi Sementara (TES) terverifikasi di luar batas KRB I (jarak aman > ${krb1RadiusKm} km).`,
   ];
 
   // Impacted Cities & Comprehensive 514 Cities Evaluation across Indonesia
@@ -429,6 +491,9 @@ export function simulateVolcanoEruption(
     ashPlumePolygon,
     ashPlumeLengthKm: basePlumeLengthKm,
     ashIsopachTiers,
+    upperAshPlumePolygon,
+    upperAshPlumeLengthKm,
+    upperAshIsopachTiers,
     etaPyroclasticMinutes,
     pyroclasticSpeedKmh,
     affectedPopulation,
@@ -444,5 +509,89 @@ export function simulateVolcanoEruption(
     bnpbInstructions,
     alertLevel: spec.alertLevel,
     alertColor: spec.alertColor,
+  };
+}
+
+/**
+ * Evaluates whether an evacuation shelter or destination coordinate is exposed
+ * to KRB zones or volcanic ash plumes (surface and upper wind shear).
+ */
+export function checkShelterHazardExposure(
+  shelterLat: number,
+  shelterLng: number,
+  volcanoResult: VolcanoSimulationResult,
+  volcanoLat: number,
+  volcanoLng: number
+): {
+  isSafe: boolean;
+  severity: 'none' | 'low' | 'medium' | 'high' | 'critical';
+  warningMessage?: string;
+  exposureType?: 'KRB3' | 'KRB2' | 'KRB1' | 'ASH_HEAVY' | 'ASH_MEDIUM' | 'UPPER_ASH';
+} {
+  const distKm = calculateHaversineDistanceKm(volcanoLat, volcanoLng, shelterLat, shelterLng);
+
+  if (volcanoResult.krb3RadiusKm > 0 && distKm <= volcanoResult.krb3RadiusKm) {
+    return {
+      isSafe: false,
+      severity: 'critical',
+      exposureType: 'KRB3',
+      warningMessage: `Bahaya Ekstrem: Titik evakuasi berada di dalam Zona KRB III (${distKm.toFixed(1)} km dari kawah). Terancam langsung awan panas guguran dan lontaran batu pijar.`,
+    };
+  }
+
+  if (volcanoResult.krb2RadiusKm > 0 && distKm <= volcanoResult.krb2RadiusKm) {
+    return {
+      isSafe: false,
+      severity: 'high',
+      exposureType: 'KRB2',
+      warningMessage: `Peringatan Tinggi: Titik evakuasi berada di dalam Zona KRB II (${distKm.toFixed(1)} km dari kawah). Terancam hujan abu lebat dan lontaran material pijar.`,
+    };
+  }
+
+  // Check ash isopach tiers (Heavy >5cm and Medium 1-5cm)
+  if (volcanoResult.ashIsopachTiers && volcanoResult.ashIsopachTiers.length >= 2) {
+    const isHeavyAsh = isPointInPolygon(shelterLat, shelterLng, volcanoResult.ashIsopachTiers[0].polygon);
+    if (isHeavyAsh) {
+      return {
+        isSafe: false,
+        severity: 'high',
+        exposureType: 'ASH_HEAVY',
+        warningMessage: `Peringatan Hujan Abu Lebat: Titik evakuasi berada di koridor sebaran abu pekat (> 5 cm). Risiko atap roboh, jarak pandang nol, dan kelumpuhan mobilitas.`,
+      };
+    }
+
+    const isMediumAsh = isPointInPolygon(shelterLat, shelterLng, volcanoResult.ashIsopachTiers[1].polygon);
+    if (isMediumAsh) {
+      return {
+        isSafe: false,
+        severity: 'medium',
+        exposureType: 'ASH_MEDIUM',
+        warningMessage: `Perhatian Hujan Abu Sedang: Titik evakuasi terpapar abu 1-5 cm. Diperlukan masker N95, pelindung mata, dan ruang penampungan tertutup.`,
+      };
+    }
+  }
+
+  // Check upper wind shear plume if present
+  if (volcanoResult.upperAshPlumePolygon && isPointInPolygon(shelterLat, shelterLng, volcanoResult.upperAshPlumePolygon)) {
+    return {
+      isSafe: false,
+      severity: 'medium',
+      exposureType: 'UPPER_ASH',
+      warningMessage: `Perhatian: Titik evakuasi berada di bawah koridor awan abu stratosferik lapisan atas.`,
+    };
+  }
+
+  if (volcanoResult.krb1RadiusKm > 0 && distKm <= volcanoResult.krb1RadiusKm) {
+    return {
+      isSafe: true,
+      severity: 'low',
+      exposureType: 'KRB1',
+      warningMessage: `Waspada KRB I: Titik evakuasi berada di batas luar KRB I (${distKm.toFixed(1)} km). Waspadai aliran lahar hujan di lembah sungai terdekat.`,
+    };
+  }
+
+  return {
+    isSafe: true,
+    severity: 'none',
   };
 }

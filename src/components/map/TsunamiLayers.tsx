@@ -365,7 +365,7 @@ export default function TsunamiLayers({
             <strong style="color: ${coastColor}; font-size: 13px;">
               ${isImpacted ? 'GARIS PANTAI TERDAMPAK TSUNAMI' : 'GARIS PANTAI ZONA WASPADA'}
             </strong><br/>
-            <span>Status Peringatan BMKG: <strong>${result.bmkgStatus}</strong></span><br/>
+            <span>Kategori Bahaya Simulasi: <strong>${result.simulatedWarningLevel || result.bmkgStatus}</strong></span><br/>
             <span>Estimasi Waktu Tiba Gelombang Pertama: <strong>${result.etaCoastMinutes} Menit</strong></span><br/>
             <span>Estimasi Tinggi Gelombang Pantai: <strong>${result.coastWaveHeightM} Meter</strong></span><br/>
             <span>Jarak Rendaman Daratan: <strong>${result.inundationDistanceM} Meter</strong></span><br/>
@@ -493,7 +493,7 @@ export default function TsunamiLayers({
       // ==============================================================
       const safeShelters = result.recommendedShelters && result.recommendedShelters.length > 0
         ? result.recommendedShelters
-        : selectedFault.safePoints;
+        : (scenario.isCustom ? [] : selectedFault.safePoints);
 
       if (safeShelters) {
         safeShelters.forEach((point) => {

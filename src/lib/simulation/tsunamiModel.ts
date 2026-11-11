@@ -57,8 +57,10 @@ export function simulateTsunamiImpact(
   let districtImpacts: CoastalDistrictImpact[] = [];
 
   if (scenario.isCustom && scenario.customLocation) {
-    const epicenterLat = scenario.customLocation.lat;
-    const epicenterLng = scenario.customLocation.lng;
+    const rawEpicenterLat = scenario.customLocation.lat;
+    const rawEpicenterLng = scenario.customLocation.lng;
+    const epicenterLat = sanitizeNumeric(rawEpicenterLat, -12.0, 8.0, -9.0);
+    const epicenterLng = sanitizeNumeric(rawEpicenterLng, 94.0, 142.0, 110.0);
 
     // Find authentic Indonesian coastal regencies with direct ocean path (NOT occluded by land)
     const allHubsWithOcclusion = INDONESIA_COASTAL_REFERENCE_HUBS.map((hub) => {
@@ -113,15 +115,9 @@ export function simulateTsunamiImpact(
       };
     });
 
-    customRecommendedShelters = closestHubs.slice(0, 3).map((hub, idx) => ({
-      id: `custom-shelter-${idx}`,
-      name: hub.safeShelterName,
-      lat: hub.lat + 0.03,
-      lng: hub.lng + 0.03,
-      elevationM: hub.shelterElevationM,
-      district: hub.districtName,
-      distanceKm: Math.round(hub.distKm + 2),
-    }));
+    // Skenario kustom tidak menghasilkan shelter sintetis offset.
+    // Hanya shelter yang diverifikasi pada pangkalan data resmi yang dapat digunakan.
+    customRecommendedShelters = [];
   } else {
     // Preset fault: Scale wave height based on scenario Mw compared to preset default
     districtImpacts = selectedFault.coastalDistricts.map((d) => {
@@ -174,26 +170,26 @@ export function simulateTsunamiImpact(
     Math.pow(coastWaveHeightM, 1.35) * 110
   );
 
-  // BMKG Official Warning Classification
-  let bmkgStatus: 'AWAS' | 'SIAGA' | 'WASPADA' | 'NORMAL' = 'NORMAL';
-  let bmkgColor = '#10B981';
-  let bmkgDescription = 'Tidak ada ancaman tsunami terdeteksi.';
+  // Simulated Hazard Warning Level (Internal model classification)
+  let simulatedWarningLevel: 'AWAS' | 'SIAGA' | 'WASPADA' | 'NORMAL' = 'NORMAL';
+  let warningColor = '#10B981';
+  let warningDescription = 'Tidak ada ancaman tsunami terdeteksi.';
 
   if (coastWaveHeightM >= 3.0) {
-    bmkgStatus = 'AWAS';
-    bmkgColor = '#EF4444';
-    bmkgDescription =
-      'Pemerintah Daerah/BPBD diperintahkan untuk segera mengarahkan masyarakat di pesisir pantai melakukan evakuasi menyeluruh ke tempat tinggi (>20 mdpl).';
+    simulatedWarningLevel = 'AWAS';
+    warningColor = '#EF4444';
+    warningDescription =
+      'Kategori bahaya simulasi AWAS: Disarankan evakuasi menyeluruh ke dataran tinggi (>20 mdpl) atau gedung TES terdekat.';
   } else if (coastWaveHeightM >= 0.5) {
-    bmkgStatus = 'SIAGA';
-    bmkgColor = '#F97316';
-    bmkgDescription =
-      'Pemerintah Daerah/BPBD segera mengarahkan masyarakat di sekitar pantai menjauhi pantai dan tepian sungai.';
+    simulatedWarningLevel = 'SIAGA';
+    warningColor = '#F97316';
+    warningDescription =
+      'Kategori bahaya simulasi SIAGA: Disarankan menjauhi pesisir pantai dan tepian sungai.';
   } else if (coastWaveHeightM > 0.1) {
-    bmkgStatus = 'WASPADA';
-    bmkgColor = '#EAB308';
-    bmkgDescription =
-      'Masyarakat dilarang beraktivitas di pantai dan wilayah muara sungai.';
+    simulatedWarningLevel = 'WASPADA';
+    warningColor = '#EAB308';
+    warningDescription =
+      'Kategori bahaya simulasi WASPADA: Pembatasan aktivitas di pantai dan kawasan muara.';
   }
 
   // Generate Isochrone Time Rings (T+5, T+10, T+20, T+30, T+45, T+60 minutes)
@@ -226,12 +222,12 @@ export function simulateTsunamiImpact(
   const coastalRoadsKm = Math.round(affectedLengthKm * 0.7);
   const settlements = Math.max(2, Math.round(affectedLengthKm / 20));
 
-  // Official BNPB / BMKG protocols
+  // Panduan Prosedur Evakuasi Edukatif
   const bnpbInstructions: string[] = [
     `Perkiraan waktu tiba (Golden Time) gelombang tsunami pertama di pantai adalah ${etaCoastMinutes} MENIT. Segera tinggalkan pantai!`,
-    `Tinggi potensi gelombang mencapai ${coastWaveHeightM} METER dengan status peringatan BMKG: ${bmkgStatus}.`,
-    `Evakuasi vertikal segera ke dataran dengan ketinggian minimum 20 meter dpl atau gedung shelter tsunami resmi terdekat.`,
-    `Gelombang tsunami pertama bukan merupakan gelombang terbesar. Waspadai gelombang kedua dan ketiga yang dapat bertahan hingga 2 jam pasca gempa.`,
+    `Tinggi potensi gelombang mencapai ${coastWaveHeightM} METER dengan status bahaya simulasi: ${simulatedWarningLevel}.`,
+    `Evakuasi vertikal segera ke dataran tinggi (>20 mdpl) atau gedung Tempat Evakuasi Sementara (TES) terverifikasi.`,
+    `Gelombang tsunami pertama bukan merupakan gelombang terbesar. Waspadai rangkaian gelombang susulan.`,
   ];
 
   // Comprehensive impacted cities & 514 cities evaluation across Indonesia
@@ -304,18 +300,18 @@ export function simulateTsunamiImpact(
 
     let impactType: ImpactedCity['impactType'] = 'TSUNAMI_WASPADA';
     let severityLevel: ImpactedCity['severityLevel'] = 'alert';
-    let statusLabel = 'BMKG: WASPADA (< 0.5m)';
+    let statusLabel = 'SIMULASI: WASPADA (< 0.5m)';
     let cityThreat: EvaluatedCity['status'] = isHit ? 'impacted' : 'advisory';
 
     if (estWaveHeight >= 3.0) {
       impactType = 'TSUNAMI_AWAS';
       severityLevel = 'danger';
-      statusLabel = 'BMKG: AWAS (> 3.0m)';
+      statusLabel = 'SIMULASI: AWAS (> 3.0m)';
       cityThreat = isHit ? 'impacted' : 'danger';
     } else if (estWaveHeight >= 0.5) {
       impactType = 'TSUNAMI_SIAGA';
       severityLevel = 'warning';
-      statusLabel = 'BMKG: SIAGA (0.5 - 3m)';
+      statusLabel = 'SIMULASI: SIAGA (0.5 - 3m)';
       cityThreat = isHit ? 'impacted' : 'warning';
     }
 
@@ -397,9 +393,12 @@ export function simulateTsunamiImpact(
     coastWaveHeightM,
     etaCoastMinutes,
     inundationDistanceM,
-    bmkgStatus,
-    bmkgColor,
-    bmkgDescription,
+    simulatedWarningLevel,
+    warningColor,
+    warningDescription,
+    bmkgStatus: simulatedWarningLevel,
+    bmkgColor: warningColor,
+    bmkgDescription: warningDescription,
     isochroneRings,
     districtImpacts,
     impactedCities,

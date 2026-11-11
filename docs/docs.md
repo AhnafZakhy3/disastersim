@@ -21,16 +21,19 @@ Dokumen ini merupakan panduan arsitektur dan teknis resmi untuk **Nusantara Disa
 
 ## 1. Ikhtisar Sistem & Filosofi Desain
 
-**Nusantara Disaster Simulator** adalah aplikasi web simulasi cepat untuk memodelkan dampak bahaya geologis di Indonesia—terfokus pada **Letusan Gunung Berapi** dan **Tsunami Megathrust**. Aplikasi ini menyajikan visualisasi taktis dengan gaya ruang kendali darurat (*Emergency Command Center*), mengadopsi standar ilmiah resmi dari **PVMBG** (Pusat Vulkanologi dan Mitigasi Bencana Geologi) dan sistem peringatan dini **BMKG InaTEWS**.
+**Nusantara Disaster Simulator** adalah aplikasi web simulasi cepat untuk memodelkan dampak bahaya geologis di Indonesia—terfokus pada **Letusan Gunung Berapi** dan **Tsunami Megathrust**. Aplikasi ini menyajikan visualisasi taktis dengan gaya ruang kendali darurat (*Emergency Command Center*), mengadopsi prinsip zonasi Kawasan Rawan Bencana (KRB) dari **PVMBG** serta tingkatan status bahaya tsunami (*Simulated Warning Levels*).
+
+> **Status Prototipe Kompetisi & Batasan:**  
+> Nusantara Disaster Simulator dirancang sebagai **prototipe kompetisi edukatif dan demonstrator mitigasi spasial**, bukan produk operasional darurat resmi BMKG/PVMBG/BNPB. Seluruh kalkulasi bersifat simulasi empiris/heuristik di sisi klien. Aplikasi tidak menggunakan feed live BMKG, tidak menggunakan database dinamis, dan rute evakuasi belum memperhitungkan kerusakan jembatan/jalan aktual atau kemacetan di lapangan.
 
 ### Tiga Pilar Rekayasa Utama:
 
 1. **100% Client-Side In-Memory Computing**:
-   Seluruh pemrosesan fisika (radius Kawasan Rawan Bencana, jangkauan sebaran abu, kecepatan rambat gelombang, amplifikasi pantai, hingga evaluasi keterpaparan 514 kota/kabupaten se-Indonesia) dieksekusi secara instan di peramban pengguna (*browser CPU*). Tidak ada ketergantungan pada backend server, database dinamis, atau API GIS eksternal berbayar.
+   Seluruh pemrosesan fisika (radius Kawasan Rawan Bencana, jangkauan sebaran abu, kecepatan rambat gelombang, amplifikasi pantai, evaluasi keterpaparan 514 kota/kabupaten se-Indonesia, hingga kalkulasi rute evakuasi pejalan kaki) dieksekusi secara instan di peramban pengguna (*browser CPU*). Tidak ada ketergantungan pada backend server atau database dinamis.
 2. **Zero-Cost Architecture pada Anycast CDN**:
-   Seluruh halaman web berstatus *Static Prerendered* (`○`) dan disajikan langsung melalui Edge CDN global Vercel. Tidak ada fungsi serverless (Lambda) yang dipanggil pada setiap permintaan halaman, sehingga biaya operasional hosting bernilai Rp 0 dan kebal terhadap lonjakan trafik tinggi.
-3. **Resiliensi Geospasial 60 FPS**:
-   Untuk memperbarui status 514 kota setiap detik tanpa membuat peramban tersendat (*stutter* atau *jank*), sistem menerapkan teknik mutasi properti in-place pada elemen SVG Leaflet, menghindari siklus destruksi dan pembuatan ulang DOM.
+   Seluruh halaman web berstatus *Static Prerendered* (`○`) dan disajikan langsung melalui Edge CDN global Vercel. Tidak ada fungsi serverless (Lambda) yang dipanggil pada setiap permintaan halaman, sehingga biaya operasional hosting tetap efisien.
+3. **Resiliensi Geospasial In-Memory**:
+   Untuk memperbarui status visual 514 kota tanpa reflow DOM berlebihan, sistem menerapkan pembaruan properti secara terarah pada elemen SVG Leaflet, menghindari siklus destruksi dan re-mount komponen yang tidak perlu.
 
 ---
 
@@ -44,25 +47,30 @@ Tabel berikut menjawab pertanyaan praktis: *"Jika saya ingin mengubah fitur X, b
 | **Timer Playback Terpusat (Play/Pause, T+Xm)** | [`src/app/page.tsx`](./src/app/page.tsx) | `useEffect` interval sentral (Single Source of Truth) |
 | **Deteksi Cerdas Klik Peta (Laut $\to$ Tsunami, Darat $\to$ Gunung)** | [`src/app/page.tsx`](./src/app/page.tsx) + [`src/lib/geoUtils.ts`](./src/lib/geoUtils.ts) | `handleMapClick`, `isOceanCoordinate` |
 | **Slider Parameter Bencana (VEI, Angin, Mw, Kedalaman)** | [`src/components/panels/ScenarioControls.tsx`](./src/components/panels/ScenarioControls.tsx) | `ScenarioControls`, slider input, filter kepulauan |
-| **Metrik Korban Terpapar, Status BMKG & Rekomendasi TES** | [`src/components/panels/ImpactSummary.tsx`](./src/components/panels/ImpactSummary.tsx) | `ImpactSummary`, ringkasan populasi, waktu kedatangan |
+| **Metrik Korban Terpapar, Bahaya Simulasi & Aksi Rute** | [`src/components/panels/ImpactSummary.tsx`](./src/components/panels/ImpactSummary.tsx) | `ImpactSummary`, telemetri evakuasi, ringkasan populasi |
 | **Direktori 514 Kota & Tombol "Fokuskan Peta"** | [`src/components/panels/ImpactSummary.tsx`](./src/components/panels/ImpactSummary.tsx) | Tab daftar kota terancam, `onFlyToCity` |
 | **Dock Pengendali Waktu T+0 s.d T+60m (Desktop)** | [`src/components/panels/TimelineBar.tsx`](./src/components/panels/TimelineBar.tsx) | `TimelineBar`, scrubber slider, pemilih speed 1x/2x/5x |
 | **Bottom Sheet 3-Tahap & Gestur Sentuh (Mobile)** | [`src/components/panels/MobileBottomSheet.tsx`](./src/components/panels/MobileBottomSheet.tsx) | `MobileBottomSheet`, height state (`peek`/`half`/`full`) |
-| **Peta Layar Penuh Leaflet & Basemap Switcher** | [`src/components/map/DisasterMap.tsx`](./src/components/map/DisasterMap.tsx) | `DisasterMap`, `applyBasemap`, floating toolbar |
+| **Peta Layar Penuh Leaflet & Basemap Switcher** | [`src/components/map/DisasterMap.tsx`](./src/components/map/DisasterMap.tsx) | `DisasterMap`, `applyBasemap`, auto-hide 514 kota saat rute aktif |
+| **Lapisan Visual Rute Evakuasi & Auto-Fit Bounds** | [`src/components/map/EvacuationRouteLayer.tsx`](./src/components/map/EvacuationRouteLayer.tsx) | `EvacuationRouteLayer`, polyline OSRM, marker origin & TES |
 | **Lapisan Visual Letusan Gunung (KRB I/II/III & Plume Abu)** | [`src/components/map/VolcanoLayers.tsx`](./src/components/map/VolcanoLayers.tsx) | `VolcanoLayers`, polygon KRB, sektor kerucut abu |
 | **Lapisan Visual Tsunami (Wave Train & Inundasi Pantai)** | [`src/components/map/TsunamiLayers.tsx`](./src/components/map/TsunamiLayers.tsx) | `TsunamiLayers`, elips gelombang, buffer inundasi |
-| **Render 514 Marker Kota Berkinerja Tinggi** | [`src/components/map/CityMarkersLayer.tsx`](./src/components/map/CityMarkersLayer.tsx) | `CityMarkersLayer`, `existingMarker.setStyle` |
+| **Render 514 Marker Kota (Supercluster Mobile Optimized)** | [`src/components/map/CityMarkersLayer.tsx`](./src/components/map/CityMarkersLayer.tsx) | `CityMarkersLayer`, `Supercluster` k-d tree, dynamic viewport badges |
+| **Modul Perutean Evakuasi OSRM & Seleksi TES** | [`src/lib/routing/routingClient.ts`](./src/lib/routing/routingClient.ts) | `calculateOptimalEvacuationRoute`, detour avoidance, road impedance |
+| **Adapter OSRM Pejalan Kaki (Direct Browser Fetch & Mirror)** | [`src/lib/routing/osrmAdapter.ts`](./src/lib/routing/osrmAdapter.ts) | `fetchOSRMRoute`, `buildOSRMRouteUrl`, secondary mirror fallback |
+| **Analisis Perpotongan Bahaya Rute (Multi-Tier Hazard Check)** | [`src/lib/routing/hazardCheck.ts`](./src/lib/routing/hazardCheck.ts) | `checkRouteHazardIntersection` (critical/high/medium/low/none) |
+| **Validasi Koordinat & Geometri Rute** | [`src/lib/routing/routeValidation.ts`](./src/lib/routing/routeValidation.ts) | `validateRouteRequest`, `validateCoordinate` (Bounding box RI) |
+| **Ekspor Data Spasial GeoJSON (RFC 7946)** | [`src/lib/routing/geojsonExport.ts`](./src/lib/routing/geojsonExport.ts) | `generateEvacuationRouteGeoJSON`, `exportRouteToGeoJSONFile` |
+| **Pangkalan Data 232 TES Nasional Terverifikasi** | [`src/data/evacuationDestinations.ts`](./src/data/evacuationDestinations.ts) | `VERIFIED_EVACUATION_DESTINATIONS` (PUPR / BNPB / BPBD / PVMBG) |
+| **Pre-Computed Offline Fixture Cache** | [`src/data/cachedPilotRoutes.ts`](./src/data/cachedPilotRoutes.ts) | `CACHED_PILOT_ROUTES`, `findMatchingCachedRoute` |
 | **Generator Unduh Laporan Taktis (PDF & PNG)** | [`src/components/modals/ExportReportModal.tsx`](./src/components/modals/ExportReportModal.tsx) | `ExportReportModal`, `html-to-image`, `jspdf` |
 | **Simbol Vektor Kartografi Taktis (Berlian KRB, Episentrum)** | [`src/components/ui/TacticalSymbols.tsx`](./src/components/ui/TacticalSymbols.tsx) | `HazardDiamond`, `SummitPeakIcon`, `SeismicEpicenterIcon` |
 | **Kartu Pengarah Mode Siaga (Clean Slate Standby)** | [`src/components/panels/StandbyBriefing.tsx`](./src/components/panels/StandbyBriefing.tsx) | `StandbyBriefing`, pengenalan legenda simbol |
-| **Rumus Erupsi Gunung, Kolom Abu & Radius KRB** | [`src/lib/simulation/volcanoModel.ts`](./src/lib/simulation/volcanoModel.ts) | `simulateVolcanoEruption`, tabel `VEI_SPECS` |
-| **Rumus Tsunami, Kecepatan $c=\sqrt{gd}$, Papazachos & Green's Law** | [`src/lib/simulation/tsunamiModel.ts`](./src/lib/simulation/tsunamiModel.ts) | `simulateTsunamiImpact`, amplifikasi pantai |
+| **Rumus Erupsi Gunung, Kolom Abu & Radius KRB** | [`src/lib/simulation/volcanoModel.ts`](./src/lib/simulation/volcanoModel.ts) | `simulateVolcanoEruption`, isolasi skenario kustom |
+| **Rumus Tsunami, Kecepatan $c=\sqrt{gd}$, Papazachos & Green's Law** | [`src/lib/simulation/tsunamiModel.ts`](./src/lib/simulation/tsunamiModel.ts) | `simulateTsunamiImpact`, `simulatedWarningLevel` |
 | **Fungsi Geospasial (Haversine, Bearing, Oklusi Daratan)** | [`src/lib/geoUtils.ts`](./src/lib/geoUtils.ts) | `calculateHaversineDistanceKm`, `isLineOccludedByLand` |
 | **Sanitasi Keamanan (XSS, Filename Traversal, Clamping Angka)** | [`src/lib/sanitize.ts`](./src/lib/sanitize.ts) | `escapeHtml`, `sanitizeFilename`, `sanitizeNumeric` |
-| **Katalog 78 Gunung Api & Puncak Nasional** | [`src/data/volcanoes.ts`](./src/data/volcanoes.ts) | `INDONESIA_VOLCANOES` |
-| **Katalog Sesar Megathrust & Hub Pesisir Nasional** | [`src/data/tsunamiFaults.ts`](./src/data/tsunamiFaults.ts) | `INDONESIA_TSUNAMI_FAULTS`, `INDONESIA_COASTAL_REFERENCE_HUBS` |
-| **Pangkalan Data 514 Kota & Kabupaten BPS** | [`src/data/indonesiaCities.ts`](./src/data/indonesiaCities.ts) | `INDONESIA_CITIES` (416 Kabupaten + 98 Kota) |
-| **Kontrak Tipe TypeScript Global** | [`src/types/disaster.ts`](./src/types/disaster.ts) | Definisi antarmuka skenario, status evaluasi, dan model |
+| **Dokumentasi Provenance & Batasan Model** | [`docs/data-sources.md`](./docs/data-sources.md), [`docs/model-limitations.md`](./docs/model-limitations.md) | Audit sumber data & justifikasi ilmiah |
 
 ---
 
@@ -119,19 +127,20 @@ Berikut adalah rincian peran teknis, masukan (*inputs*), keluaran (*outputs*), d
   * Menghubungkan klik koordinat peta dengan event `onMapClick`.
 
 #### 2. `src/components/map/CityMarkersLayer.tsx`
-* **Peran**: Lapisan visual 514 titik kota dan kabupaten di atas peta.
+* **Peran**: Lapisan visual 514 titik kota dan kabupaten di atas peta dengan optimasi mobile berbasis `supercluster`.
 * **Optimasi Kritis**:
-  * Menggunakan `Map<string, L.CircleMarker>` untuk menyimpan referensi marker yang sudah dibuat.
-  * Saat waktu $T$ bergeser, sistem mengeksekusi `existingMarker.setStyle()` dan `setTooltipContent()` secara in-place. Hal ini mencegah browser membuat 514 elemen DOM SVG baru setiap detik, menjaga FPS tetap stabil di angka 60.
+  * Mengintegrasikan `Supercluster` k-d tree in-memory secara headless pada peta Leaflet murni.
+  * Saat peta berada di zoom rendah (panoramic view), 514 kota diringkas menjadi 15–30 badge kluster numerik yang dinamis dengan indikator warna status bahaya tertinggi di dalamnya.
+  * Saat pengguna memperbesar peta (*zoom in*), marker lingkaran individu ditampilkan secara terarah. DOM footprint berkurang drastis pada perangkat seluler.
   * Mengikat popup telemetri interaktif dengan data sensus penduduk BPS, jarak kilometer ke sumber bencana, status peringatan, dan tombol fokus navigasi.
 
 #### 3. `src/components/map/VolcanoLayers.tsx`
 * **Peran**: Lapisan visual bahaya erupsi gunung berapi.
 * **Tanggung Jawab**:
   * Menampilkan 69 pin gunung aktif dengan ikon berlian taktis oranye dan 9 pin non-vulkanik abu-abu.
-  * Menggambar tiga poligon lingkaran transparan untuk Kawasan Rawan Bencana (KRB III bahaya tinggi, KRB II sedang, KRB I rendah).
-  * Menggambar poligon sektor kerucut dispersi abu vulkanik (*ash plume cone*) sesuai arah dan kecepatan hembusan angin.
-  * Menampilkan lokasi Tempat Evakuasi Sementara (TES) aman di luar batas KRB.
+  * Menggambar tiga poligon lingkaran transparan untuk Kawasan Rawan Bencana (KRB III bahaya mutlak, KRB II sedang, KRB I rendah).
+  * Menggambar poligon sektor kerucut dispersi abu troposfer (*ash plume cone*) dan poligon stratosfer (*Atmospheric Wind Shear Plume* jika diaktifkan).
+  * Menampilkan lokasi Tempat Evakuasi Sementara (TES) dengan evaluasi paparan bahaya seketika (`checkShelterHazardExposure`): shelter yang terpapar abu atau berada di dalam KRB otomatis ditandai merah/peringatan.
 
 #### 4. `src/components/map/TsunamiLayers.tsx`
 * **Peran**: Lapisan visual perambatan gelombang tsunami dan ancaman pesisir.
@@ -175,6 +184,7 @@ Berikut adalah rincian peran teknis, masukan (*inputs*), keluaran (*outputs*), d
   * Memiliki 3 mode ketinggian: `peek` (68px), `half` (52dvh), dan `full` (86dvh).
   * Mengisolasi deteksi gestur sentuh (`onTouchStart`, `onTouchEnd`) pada handle atas dengan ambang batas geser 40px, sehingga tidak mengganggu kemampuan scroll daftar kota di dalam tab.
   * Otomatis menurunkan ketinggian dari `full` ke `half` saat pengguna menekan kota di tab dampak agar animasi kamera peta terlihat.
+  * Otomatis mengempiskan sheet ke mode `peek` saat tombol "Pilih Titik di Peta" ditekan agar layar peta mobile terbuka luas bagi pengguna untuk menentukan koordinat origin baru tanpa terhalang sheet.
 
 #### 5. `src/components/panels/StandbyBriefing.tsx`
 * **Peran**: Kartu panduan operasional saat aplikasi berada dalam status default *Clean Slate Standby Mode*.
@@ -234,7 +244,42 @@ Berikut adalah rincian peran teknis, masukan (*inputs*), keluaran (*outputs*), d
 
 ---
 
-### F. Direktori `src/data/` (Pangkalan Data Geologis Statis)
+### F. Direktori `src/lib/routing/` (Modul Perutean Evakuasi & GIS)
+
+#### 1. `src/lib/routing/routingClient.ts`
+* **Peran**: Orkestrator pencarian rute evakuasi darurat pejalan kaki.
+* **Tanggung Jawab**:
+  * Menyeleksi kandidat TES terdekat yang aman dari paparan langsung bencana aktif.
+  * Memanggil adapter OSRM untuk menghasilkan rute topologi jalan kaki riil.
+  * Menjalankan penghindaran otomatis (*hazard detour avoidance*): bila rute awal memotong zona bahaya tinggi (KRB III/II atau tsunami), sistem menghitung waypoint pembelok jalan yang menjauhi bahaya.
+  * Menerapkan dinamika impedansi jalan (*dynamic road impedance*): menambahkan penalti durasi realistis bila rute mendekati batas bahaya atau medan menanjak.
+  * Menghitung alokasi kapasitas TES: bila estimasi pengungsi melebihi daya tampung TES utama, sistem otomatis menghitung rute limpasan (*spillover route*) ke TES sekunder terdekat.
+
+#### 2. `src/lib/routing/osrmAdapter.ts`
+* **Peran**: Adapter jaringan OSRM client-side.
+* **Tanggung Jawab**:
+  * Mengirim permintaan rute pejalan kaki ke server OSRM dengan timeout dan penanganan error terisolasi.
+  * Mendukung failover mirror sekunder dan fallback offline cache fixture ([`src/data/cachedPilotRoutes.ts`](./src/data/cachedPilotRoutes.ts)) saat perangkat luring.
+
+#### 3. `src/lib/routing/hazardCheck.ts`
+* **Peran**: Mesin analisis perpotongan spasial poligon bahaya terhadap geometri rute.
+* **Tanggung Jawab**:
+  * Mengklasifikasikan tingkat ancaman rute ke dalam 5 tingkatan: `critical` (KRB III / genangan tsunami), `high` (KRB II), `medium` (KRB I / abu tebal), `low` (abu sedang), dan `none`.
+
+#### 4. `src/lib/routing/routeValidation.ts`
+* **Peran**: Validator integritas spasial masukan rute.
+* **Tanggung Jawab**:
+  * Memvalidasi koordinat titik asal dan tujuan agar berada dalam batas teritorial kepulauan Indonesia ($6^\circ\text{LU} - 11^\circ\text{LS}$, $95^\circ\text{BT} - 141^\circ\text{BT}$) serta bebas dari `NaN`/`Infinity`.
+
+#### 5. `src/lib/routing/geojsonExport.ts`
+* **Peran**: Generator ekspor data spasial GeoJSON berstandar RFC 7946.
+* **Tanggung Jawab**:
+  * Mengemas rute evakuasi utama, rute limpasan sekunder, titik origin & TES, serta seluruh poligon zona bahaya aktif ke dalam satu `FeatureCollection` GeoJSON berstruktur rapi.
+  * Menyediakan fungsi unduh instan di peramban klien dengan penamaan file aman ([`src/lib/sanitize.ts`](./src/lib/sanitize.ts)) untuk analisis lanjutan di QGIS, ArcGIS, atau Google Earth.
+
+---
+
+### G. Direktori `src/data/` (Pangkalan Data Geologis & Evakuasi Statis)
 
 #### 1. `src/data/volcanoes.ts`
 * **Peran**: Katalog 78 gunung api dan puncak pegunungan di Indonesia (69 gunung aktif tipe A/B + 9 puncak non-vulkanik), mencakup koordinat, elevasi, provinsi, gugus pulau, dan VEI default.
@@ -245,9 +290,15 @@ Berikut adalah rincian peran teknis, masukan (*inputs*), keluaran (*outputs*), d
 #### 3. `src/data/indonesiaCities.ts`
 * **Peran**: Pangkalan data lengkap 514 Kota dan Kabupaten di 38 Provinsi di Indonesia (416 Kabupaten + 98 Kota) sesuai sensus BPS dan Kemendagri terbaru, mencakup koordinat sentroid, estimasi penduduk, dan penanda wilayah pesisir (*isCoastal*).
 
+#### 4. `src/data/evacuationDestinations.ts`
+* **Peran**: Pangkalan data 232 Tempat Evakuasi Sementara (TES) nasional terverifikasi dari rujukan resmi Kementerian PUPR, BNPB, BPBD, dan PVMBG untuk seluruh gugus kepulauan Indonesia, dilengkapi kapasitas terpasang dan elevasi mdpl.
+
+#### 5. `src/data/cachedPilotRoutes.ts`
+* **Peran**: Fixture rute luring terpra-komputasi untuk area pilot utama guna mendukung demonstrasi saat terjadi pemadaman koneksi internet.
+
 ---
 
-### G. Direktori `scripts/` (Automated Test Suites)
+### H. Direktori `scripts/` (Automated Test Suites)
 
 #### 1. `scripts/run100Scenarios.ts`
 * **Peran**: Audit otomatis 100 skenario bencana ekstrem (50 erupsi vulkanik, 40 skenario tsunami megathrust, 10 skenario kustom lepas pantai) untuk memverifikasi akurasi matematis tanpa nilai `NaN` dan latensi di bawah 10 ms per pengujian.
@@ -465,25 +516,30 @@ Repositori dilengkapi rangkaian tes otomatis tanpa dependensi server eksternal:
 ```bash
 npm run test
 ```
-Perintah ini mengeksekusi 4 tahap pengujian berurutan:
+Perintah ini mengeksekusi 5 tahap pengujian berurutan:
 1. `npx tsc --noEmit`: Pengecekan keutuhan seluruh tipe data TypeScript.
 2. `npm run test:security`: Eksekusi berkas [`scripts/test_security_sanitization.ts`](./scripts/test_security_sanitization.ts) (21 skenario uji lulus: sanitasi XSS tooltip, path traversal berkas unduhan, dan injeksi nilai `NaN`/`Infinity`).
 3. `npm run test:integrity`: Eksekusi berkas [`scripts/test_geometry_integrity.ts`](./scripts/test_geometry_integrity.ts) (12 skenario uji lulus: validasi keutuhan 514 kota, batasan koordinat teritorial Indonesia, akurasi Haversine, dan simetri sudut lingkaran).
-4. `npm run audit`: Eksekusi berkas [`scripts/run100Scenarios.ts`](./scripts/run100Scenarios.ts) (100 skenario simulasi ekstrem: 50 letusan gunung, 40 tsunami tektonik, 10 skenario kustom lepas pantai dengan tingkat kelulusan 100.0% dan rata-rata latensi $< 5\text{ ms}$ per skenario).
+4. `npm run test:routing`: Eksekusi berkas [`scripts/test_evacuation_routing.ts`](./scripts/test_evacuation_routing.ts) (36 skenario uji lulus: integritas 232 TES nasional terverifikasi, validasi koordinat teritorial Indonesia, pemformatan URL OSRM pejalan kaki, deteksi perpotongan bahaya berjenjang, model dual-layer wind shear, pemeriksaan paparan shelter, alokasi kapasitas TES & spillover, offline cache fixtures, grouping k-d tree Supercluster, dan validasi ekspor GeoJSON RFC 7946 untuk kompatibilitas GIS desktop).
+5. `npm run audit`: Eksekusi berkas [`scripts/run100Scenarios.ts`](./scripts/run100Scenarios.ts) (100 skenario simulasi ekstrem: 50 letusan gunung, 40 tsunami tektonik, 10 skenario kustom lepas pantai dengan tingkat kelulusan 100.0% dan rata-rata latensi $< 5\text{ ms}$ per skenario).
 
 ---
 
 ## 10. Panduan Operasional, Deployment & Arsitektur Biaya
 
-### A. Mengapa Biaya Operasional di Vercel Rp 0?
-1. **Zero Serverless Compute**: Halaman `/` berstatus `○ (Static)` (prerendered as static content). Tidak ada fungsi serverless Lambda yang dibangun atau dipanggil per request.
-2. **Kapasitas Bandwidth Luas**: Bundel aplikasi hanya sebesar ~176 kB (Brotli compressed). Batas kuota gratis Vercel Hobby sebesar 100 GB/bulan sanggup menampung lebih dari **500.000 kunjungan halaman per bulan**.
-3. **Ubin Peta Berjalan Langsung dari Browser Pengguna**: Pengunduhan ubin peta Esri Dark Gray dilakukan langsung dari browser pengguna ke server ArcGIS Esri, **tidak melalui proksi Vercel**, sehingga tidak mengonsumsi kuota bandwidth hosting Anda.
+### A. Arsitektur Hosting Vercel Edge CDN
+1. **Zero Serverless Compute**: Seluruh halaman berstatus `○ (Static)` (prerendered as static content). Tidak ada fungsi serverless Lambda yang dibangun atau dipanggil per request.
+2. **Distribusi Aset Statis**: Seluruh kode HTML, CSS, JavaScript, dan metadata disajikan langsung melalui Edge Network Vercel, menghasilkan biaya komputasi server Rp 0.
+3. **Panggilan Routing & Peta Berjalan Langsung dari Browser Pengguna**:
+   - Pengunduhan ubin peta (Esri / OpenStreetMap) dilakukan langsung dari browser pengguna ke server penyedia peta.
+   - Panggilan routing pejalan kaki OSRM dilakukan via *Direct Client Fetch* dari peramban pengguna ke `router.project-osrm.org` (diizinkan pada directive `connect-src` CSP).
 
-### B. Keamanan & Versi Dependensi
+### B. Keamanan, Atribusi & Kebijakan Lingkungan
 * **Next.js 15.5.28**: Versi rilis patch resmi yang telah menutup seluruh celah keamanan (CVE / GHSA Security Advisories).
-* **Self-Hosted Leaflet CSS**: File CSS Leaflet diimpor dari modul lokal `node_modules/leaflet/dist/leaflet.css`, mengeliminasi ketergantungan pada CDN publik pihak ketiga `unpkg.com`.
-* **Content Security Policy (CSP)**: Dikonfigurasi secara ketat pada [`next.config.ts`](./next.config.ts) dengan mengunci izin sumber script, style, font, dan koneksi hanya ke domain resmi Esri dan OpenStreetMap.
+* **Self-Hosted Leaflet CSS**: File CSS Leaflet diimpor dari modul lokal `node_modules/leaflet/dist/leaflet.css`, mengeliminasi ketergantungan pada CDN publik pihak ketiga.
+* **Content Security Policy (CSP)**: Dikonfigurasi secara ketat pada [`next.config.ts`](./next.config.ts) dengan mengunci izin sumber script, style, font, dan koneksi hanya ke domain resmi Esri, OpenStreetMap, dan server rute OSRM.
+* **Penyimpanan Kredensial**: Template environment disediakan pada [`.env.example`](./.env.example). Berkas `.env` lokal diabaikan secara ketat oleh [`.gitignore`](./.gitignore).
+* **Kontrol Build Otomatis**: Skrip `vercel-ignore-build` pada [`package.json`](./package.json) memantau perubahan file kode, konfigurasi, lockfile, dan manifest sebelum mengizinkan build produksi di Vercel.
 
 ---
 

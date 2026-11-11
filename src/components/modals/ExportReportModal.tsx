@@ -20,8 +20,10 @@ import {
   Calendar,
   MapPin,
   CheckCircle,
+  Navigation,
 } from 'lucide-react';
 import { sanitizeFilename } from '@/lib/sanitize';
+import { EvacuationRouteResult } from '@/lib/routing/routingTypes';
 
 interface ExportReportModalProps {
   isOpen: boolean;
@@ -33,6 +35,7 @@ interface ExportReportModalProps {
   tsunamiScenario: TsunamiScenario;
   volcanoResult: VolcanoSimulationResult;
   tsunamiResult: TsunamiSimulationResult;
+  evacuationRoute?: EvacuationRouteResult | null;
 }
 
 export default function ExportReportModal({
@@ -45,6 +48,7 @@ export default function ExportReportModal({
   tsunamiScenario,
   volcanoResult,
   tsunamiResult,
+  evacuationRoute,
 }: ExportReportModalProps) {
   const reportRef = useRef<HTMLDivElement>(null);
   const [reportType, setReportType] = useState<'volcano' | 'tsunami'>(
@@ -188,7 +192,7 @@ export default function ExportReportModal({
                   DISASTER IMPACT BRIEF
                 </h1>
                 <p className="text-xs text-slate-400">
-                  Ringkasan Eksekutif Simulasi Bahaya Geologis PVMBG & BMKG
+                  Ringkasan Eksekutif Simulasi Bahaya Geologis &amp; Rute Evakuasi
                 </p>
               </div>
               <div className="text-right text-xs text-slate-400 font-mono space-y-0.5">
@@ -241,12 +245,12 @@ export default function ExportReportModal({
                     style={{
                       color: isVolcano
                         ? volcanoResult.alertColor
-                        : tsunamiResult.bmkgColor,
+                        : (tsunamiResult.warningColor || tsunamiResult.bmkgColor),
                     }}
                   >
                     {isVolcano
                       ? volcanoResult.alertLevel
-                      : tsunamiResult.bmkgStatus}
+                      : (tsunamiResult.simulatedWarningLevel || tsunamiResult.bmkgStatus)}
                   </span>
                 </div>
 
@@ -324,10 +328,83 @@ export default function ExportReportModal({
               </div>
             )}
 
+            {/* Simulasi Jalur Evakuasi Otomatis (Jika Aktif) */}
+            {evacuationRoute && evacuationRoute.success && (
+              <div className="p-3 bg-slate-900/90 rounded-lg border border-cyan-800/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Hasil Simulasi Rute Evakuasi Pejalan Kaki</span>
+                  </h4>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-300">
+                    JARINGAN JALAN TERVERIFIKASI
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Titik Awal Evakuasi:</span>
+                    <strong className="text-slate-200">{evacuationRoute.origin.name}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Tempat Evakuasi Sementara (TES):</span>
+                    <strong className="text-emerald-400">{evacuationRoute.destination.name}</strong>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-800 text-center">
+                  <div className="p-1.5 bg-slate-950/70 rounded border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block">Jarak Rute:</span>
+                    <strong className="text-xs text-slate-100 font-mono">
+                      {(evacuationRoute.distanceMeters / 1000).toFixed(2)} km
+                    </strong>
+                  </div>
+                  <div className="p-1.5 bg-slate-950/70 rounded border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block">Est. Waktu Jalan:</span>
+                    <strong className="text-xs text-cyan-300 font-mono">
+                      ~{Math.max(1, Math.round(evacuationRoute.durationSeconds / 60))} Menit
+                    </strong>
+                    {evacuationRoute.impedanceMultiplier && evacuationRoute.impedanceMultiplier > 1.0 && (
+                      <span className="text-[8px] text-amber-400 block">({evacuationRoute.impedanceMultiplier}x impedansi)</span>
+                    )}
+                  </div>
+                  <div className="p-1.5 bg-slate-950/70 rounded border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block">Status Bahaya:</span>
+                    <strong
+                      className={`text-[10px] ${
+                        evacuationRoute.hazardSeverity === 'critical' || evacuationRoute.hazardSeverity === 'high'
+                          ? 'text-rose-400'
+                          : evacuationRoute.hazardSeverity === 'medium' || evacuationRoute.hazardSeverity === 'low'
+                          ? 'text-amber-400'
+                          : 'text-emerald-400'
+                      }`}
+                    >
+                      {evacuationRoute.hazardSeverity ? evacuationRoute.hazardSeverity.toUpperCase() : 'AMAN'}
+                    </strong>
+                  </div>
+                </div>
+
+                {evacuationRoute.capacityAllocation && (
+                  <div className="text-[10px] text-slate-300 bg-slate-950/60 p-2 rounded border border-slate-800 space-y-0.5">
+                    <div>
+                      Daya Tampung TES: <strong>{evacuationRoute.capacityAllocation.occupancyPercentage}% terisi</strong> ({evacuationRoute.capacityAllocation.allocatedCount.toLocaleString('id-ID')} jiwa)
+                    </div>
+                    {evacuationRoute.capacityAllocation.isOverCapacity && evacuationRoute.capacityAllocation.secondaryDestination && (
+                      <div className="text-rose-300">
+                        Limpasan {evacuationRoute.capacityAllocation.secondaryAllocatedCount.toLocaleString('id-ID')} jiwa dialihkan ke TES 2: {evacuationRoute.capacityAllocation.secondaryDestination.name}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="text-[9px] text-slate-500 leading-tight">
+                  Status Data: Terverifikasi ({evacuationRoute.destination.sourceName}) • Engine: {evacuationRoute.provider} {evacuationRoute.offlineMode ? '(Offline Cache)' : ''}
+                </div>
+              </div>
+            )}
+
             {/* Official Safety Protocols */}
             <div>
               <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
-                Instruksi Evakuasi & Keselamatan (BNPB)
+                Panduan Prosedur Evakuasi Edukatif
               </h4>
               <ul className="space-y-1 text-xs text-slate-300">
                 {(isVolcano
@@ -344,7 +421,7 @@ export default function ExportReportModal({
 
             {/* Footer Disclaimer */}
             <div className="pt-3 border-t border-slate-800 text-[9px] text-slate-500 text-center font-mono leading-relaxed">
-              NUSANTARA DISASTER SIMULATOR • SIMULASI EDUKASI & KAJIAN RISIKO EMPIRIS • BUKAN PERINGATAN RESMI OPERASIONAL BMKG/PVMBG/BNPB
+              NUSANTARA DISASTER SIMULATOR • PROTOTIPE KOMPETISI & KAJIAN RISIKO EDUKATIF • BUKAN PERINGATAN RESMI ATAU PANDUAN LAPANGAN BMKG/PVMBG/BNPB
             </div>
           </div>
         </div>

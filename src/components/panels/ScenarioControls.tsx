@@ -400,7 +400,7 @@ export default function ScenarioControls({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-300 flex items-center gap-1.5">
                   <Wind className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Kecepatan Angin</span>
+                  <span>Kecepatan Angin Troposfer</span>
                 </span>
                 <span className="font-mono text-slate-200 tabular-nums font-bold">
                   {volcanoScenario.windSpeedKmh} km/jam
@@ -409,7 +409,7 @@ export default function ScenarioControls({
               <input
                 id="wind-speed-slider"
                 name="wind-speed-slider"
-                aria-label="Kecepatan Angin"
+                aria-label="Kecepatan Angin Troposfer"
                 type="range"
                 min={5}
                 max={90}
@@ -423,6 +423,83 @@ export default function ScenarioControls({
                 }
                 className="w-full accent-slate-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
               />
+            </div>
+
+            {/* Toggle Wind Shear Atmosfer Multi-Lapisan */}
+            <div className="pt-2.5 border-t border-slate-800/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="wind-shear-toggle" className="text-xs font-semibold text-purple-300 flex items-center gap-1.5 cursor-pointer">
+                  <span>Profil Wind Shear Ketinggian (&gt;3 km)</span>
+                </label>
+                <input
+                  id="wind-shear-toggle"
+                  type="checkbox"
+                  checked={volcanoScenario.enableWindShear || false}
+                  onChange={(e) =>
+                    onVolcanoScenarioChange({
+                      ...volcanoScenario,
+                      enableWindShear: e.target.checked,
+                      upperWindDirectionDeg: volcanoScenario.upperWindDirectionDeg ?? 90,
+                      upperWindSpeedKmh: volcanoScenario.upperWindSpeedKmh ?? 65,
+                    })
+                  }
+                  className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-purple-600 accent-purple-500 cursor-pointer"
+                />
+              </div>
+
+              {volcanoScenario.enableWindShear && (
+                <div className="p-2.5 rounded-lg bg-purple-950/40 border border-purple-800/60 space-y-2.5 text-xs">
+                  <div className="text-[10px] text-purple-200/90 leading-tight">
+                    Model atmosferik mensimulasikan kolom erupsi menembus stratosfer dengan vektor arah angin yang berlawanan/berbeda akibat jet stream.
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-300">Arah Angin Stratosfer:</span>
+                      <span className="font-mono text-purple-300 font-bold">
+                        {volcanoScenario.upperWindDirectionDeg ?? 90}° ({degreeToCompassIndonesian(volcanoScenario.upperWindDirectionDeg ?? 90)})
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={360}
+                      step={5}
+                      value={volcanoScenario.upperWindDirectionDeg ?? 90}
+                      onChange={(e) =>
+                        onVolcanoScenarioChange({
+                          ...volcanoScenario,
+                          upperWindDirectionDeg: parseInt(e.target.value),
+                        })
+                      }
+                      className="w-full accent-purple-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-300">Kecepatan Angin Stratosfer:</span>
+                      <span className="font-mono text-purple-300 font-bold">
+                        {volcanoScenario.upperWindSpeedKmh ?? 65} km/jam
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={10}
+                      max={150}
+                      step={5}
+                      value={volcanoScenario.upperWindSpeedKmh ?? 65}
+                      onChange={(e) =>
+                        onVolcanoScenarioChange({
+                          ...volcanoScenario,
+                          upperWindSpeedKmh: parseInt(e.target.value),
+                        })
+                      }
+                      className="w-full accent-purple-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
