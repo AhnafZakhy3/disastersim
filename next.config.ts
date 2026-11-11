@@ -35,7 +35,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' blob: data: https://server.arcgisonline.com https://tile.openstreetmap.org",
       "font-src 'self'",
-      `connect-src 'self' https://server.arcgisonline.com https://tile.openstreetmap.org https://router.project-osrm.org${isDev ? " ws: http:" : ""}`,
+      `connect-src 'self' https://server.arcgisonline.com https://tile.openstreetmap.org https://router.project-osrm.org https://routing.openstreetmap.de${isDev ? " ws: http:" : ""}`,
       "frame-ancestors 'none'",
     ].join('; '),
   },
